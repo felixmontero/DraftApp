@@ -11,6 +11,11 @@ export default function App(): React.JSX.Element {
   const [patch, setPatch] = useState<string>(CURRENT_PATCH)
 
   useEffect(() => {
+    // Consultar estado actual al montar (evita race condition con el evento inicial)
+    window.api.invoke('lcu:getStatus').then((status: unknown) => {
+      if (status === 'connected') setConnection('connected')
+    })
+
     window.api.on(IPC.LCU_CONNECTED, () => setConnection('connected'))
 
     window.api.on(IPC.LCU_DISCONNECTED, () => {

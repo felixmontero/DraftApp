@@ -22,12 +22,14 @@ async function fetchCurrentPatch(): Promise<string> {
 }
 
 let mainWindow: BrowserWindow | null = null
+let lcuConnected = false
 
 const lcuClient = new LcuClient()
 const lcuEvents = new LcuEvents()
 
 function setupLcu(): void {
   lcuClient.onConnect(async (credentials) => {
+    lcuConnected = true
     lcuEvents.connect(credentials)
 
     // Notificar al renderer que el cliente está conectado
@@ -41,6 +43,7 @@ function setupLcu(): void {
   })
 
   lcuClient.onDisconnect(() => {
+    lcuConnected = false
     lcuEvents.disconnect()
     mainWindow?.webContents.send(IPC.LCU_DISCONNECTED)
   })
@@ -95,6 +98,9 @@ function createWindow(): void {
 // Controles de ventana
 ipcMain.handle('window:minimize', () => mainWindow?.minimize())
 ipcMain.handle('window:close', () => mainWindow?.close())
+
+// Estado LCU: el renderer lo consulta al montar para evitar la race condition
+ipcMain.handle('lcu:getStatus', () => lcuConnected ? 'connected' : 'disconnected')
 
 app.whenReady().then(async () => {
   electronApp.setAppUserModelId('com.draftapp.lol')
