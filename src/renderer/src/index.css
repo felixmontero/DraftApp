@@ -1,0 +1,28 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html, body, #root {
+  @apply bg-transparent;
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100vh;
+  overflow: hidden;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { @apply bg-lol-dark; }
+::-webkit-scrollbar-thumb { @apply bg-lol-border-bright rounded-full; }
+
+/* Línea decorativa dorada */
+.gold-line {
+  background: linear-gradient(90deg, transparent, #c89b3c, transparent);
+  height: 1px;
+}
+
+/* Degradado panel */
+.panel-gradient {
+  background: linear-gradient(180deg, #0d1826 0%, #0a1520 100%);
+}
