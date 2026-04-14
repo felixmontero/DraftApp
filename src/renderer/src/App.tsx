@@ -98,7 +98,7 @@ export default function App(): React.JSX.Element {
       <StatusBar connection={connection} />
 
       {/* Contenido */}
-      <div className="flex flex-col flex-1 overflow-hidden p-2 gap-2">
+      <div className="flex flex-row flex-1 overflow-hidden p-3 gap-3">
         <DraftBoard draft={draft} patch={patch} championMap={championMap} />
         <RecommendationPanel draft={draft} patch={patch} />
       </div>

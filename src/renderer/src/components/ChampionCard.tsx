@@ -36,7 +36,7 @@ export default function ChampionCard({ rec, rank }: Props): React.JSX.Element {
       </span>
 
       {/* Icono */}
-      <div className="w-9 h-9 rounded border border-lol-border group-hover:border-lol-border-bright shrink-0 overflow-hidden bg-lol-dark transition-colors">
+      <div className="w-11 h-11 rounded border border-lol-border group-hover:border-lol-border-bright shrink-0 overflow-hidden bg-lol-dark transition-colors">
         {rec.champion.iconUrl ? (
           <img src={rec.champion.iconUrl} alt={rec.champion.name} className="w-full h-full object-cover" />
         ) : (

@@ -10,34 +10,33 @@ interface Props {
 
 // Fase 4: mock data para visualizar el diseño mientras el engine no está listo
 function buildMockRecommendations(patch: string): Recommendation[] {
-  const base = `https://ddragon.leagueoflegends.com/cdn/${patch}/img/champion`
   return [
     {
-      champion: { id: 266, key: 'Aatrox', name: 'Aatrox', iconUrl: `${base}/Aatrox.png` },
+      champion: { id: 266, key: 'Aatrox', name: 'Aatrox', iconUrl: 'ddragon://Aatrox.png' },
       score: 94,
       breakdown: { winRate: 0.54, counterScore: 0.82, synergyScore: 0.78, tierBonus: 1.0 },
       reasons: ['Counter vs Darius', 'Sinergia con Jinx', `S-Tier parche ${ddPatchToDisplay(patch)}`]
     },
     {
-      champion: { id: 84, key: 'Akali', name: 'Akali', iconUrl: `${base}/Akali.png` },
+      champion: { id: 84, key: 'Akali', name: 'Akali', iconUrl: 'ddragon://Akali.png' },
       score: 87,
       breakdown: { winRate: 0.52, counterScore: 0.74, synergyScore: 0.65, tierBonus: 0.8 },
       reasons: ['Counter vs Malphite', `A-Tier parche ${ddPatchToDisplay(patch)}`]
     },
     {
-      champion: { id: 103, key: 'Ahri', name: 'Ahri', iconUrl: `${base}/Ahri.png` },
+      champion: { id: 103, key: 'Ahri', name: 'Ahri', iconUrl: 'ddragon://Ahri.png' },
       score: 82,
       breakdown: { winRate: 0.51, counterScore: 0.70, synergyScore: 0.60, tierBonus: 0.7 },
       reasons: ['Win rate estable 51.2%']
     },
     {
-      champion: { id: 164, key: 'Camille', name: 'Camille', iconUrl: `${base}/Camille.png` },
+      champion: { id: 164, key: 'Camille', name: 'Camille', iconUrl: 'ddragon://Camille.png' },
       score: 76,
       breakdown: { winRate: 0.50, counterScore: 0.62, synergyScore: 0.55, tierBonus: 0.6 },
       reasons: ['Sinergia con Orianna']
     },
     {
-      champion: { id: 39, key: 'Irelia', name: 'Irelia', iconUrl: `${base}/Irelia.png` },
+      champion: { id: 39, key: 'Irelia', name: 'Irelia', iconUrl: 'ddragon://Irelia.png' },
       score: 71,
       breakdown: { winRate: 0.49, counterScore: 0.58, synergyScore: 0.52, tierBonus: 0.5 },
       reasons: ['B-Tier — pick seguro']

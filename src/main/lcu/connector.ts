@@ -71,8 +71,11 @@ export class LcuClient extends EventEmitter {
 
   private processTimer: ReturnType<typeof setInterval> | null = null
   private lockfileWatcher: fs.FSWatcher | null = null
+  private lockfilePoller: ReturnType<typeof setInterval> | null = null
+  private readDebounce: ReturnType<typeof setTimeout> | null = null
   private dirPath: string | null = null
   private connected = false
+  private lastLockfileContent = ''
 
   onConnect(cb: ConnectCb): void { this.connectCb = cb }
   onDisconnect(cb: DisconnectCb): void { this.disconnectCb = cb }
@@ -117,31 +120,53 @@ export class LcuClient extends EventEmitter {
 
     const lockfilePath = path.join(this.dirPath, 'lockfile')
 
-    // Leer inmediatamente si ya existe (cliente ya abierto al arrancar la app)
-    if (fs.existsSync(lockfilePath)) {
-      this.onLockfileCreated(lockfilePath)
-    }
-
-    this.lockfileWatcher = fs.watch(this.dirPath, (event, filename) => {
+    // 1. Montar watcher ANTES de comprobar si existe el lockfile.
+    //    Así cubrimos la race condition donde el lockfile se crea entre
+    //    el check de existencia y el inicio del watcher.
+    this.lockfileWatcher = fs.watch(this.dirPath, (_event, filename) => {
       if (filename !== 'lockfile') return
-      if (event === 'rename') {
+      // Debounce: esperar a que el archivo esté completamente escrito
+      if (this.readDebounce) clearTimeout(this.readDebounce)
+      this.readDebounce = setTimeout(() => {
+        this.readDebounce = null
         if (fs.existsSync(lockfilePath)) {
           this.onLockfileCreated(lockfilePath)
         } else {
           this.onLockfileRemoved()
         }
-      }
+      }, 250)
     })
 
     this.lockfileWatcher.on('error', (err) => {
       console.error('[LCU] Error vigilando directorio:', err.message)
       this.clearLockfileWatcher()
-      // Relanzar la búsqueda del proceso
       this.pollProcess()
     })
+
+    // 2. Fallback: sondeo periódico (fs.watch en Windows puede perder eventos)
+    this.lockfilePoller = setInterval(() => {
+      if (fs.existsSync(lockfilePath)) {
+        this.onLockfileCreated(lockfilePath)
+      } else if (this.connected) {
+        this.onLockfileRemoved()
+      }
+    }, 5000)
+
+    // 3. Leer inmediatamente si ya existe (después de montar el watcher)
+    if (fs.existsSync(lockfilePath)) {
+      this.onLockfileCreated(lockfilePath)
+    }
   }
 
   private clearLockfileWatcher(): void {
+    if (this.readDebounce) {
+      clearTimeout(this.readDebounce)
+      this.readDebounce = null
+    }
+    if (this.lockfilePoller) {
+      clearInterval(this.lockfilePoller)
+      this.lockfilePoller = null
+    }
     if (this.lockfileWatcher) {
       this.lockfileWatcher.close()
       this.lockfileWatcher = null
@@ -151,23 +176,27 @@ export class LcuClient extends EventEmitter {
   private onLockfileCreated(lockfilePath: string): void {
     try {
       const content = fs.readFileSync(lockfilePath, 'utf-8')
+      // Deduplicar: solo emitir connect si el contenido cambió (nuevo puerto/password)
+      if (!content || content === this.lastLockfileContent) return
+      this.lastLockfileContent = content
       const credentials = parseLockfile(content)
       if (!credentials) return
       console.log('[LCU] Cliente detectado en puerto', credentials.port)
       this.connected = true
       this.connectCb?.(credentials)
-    } catch (err) {
-      console.error('[LCU] No se pudo leer el lockfile:', err)
+    } catch {
+      // Archivo bloqueado o parcialmente escrito, se reintentará
     }
   }
 
   private onLockfileRemoved(): void {
     if (!this.connected) return
-    console.log('[LCU] Cliente cerrado')
+    console.log('[LCU] Cliente cerrado — esperando reconexión...')
     this.connected = false
+    this.lastLockfileContent = ''
     this.disconnectCb?.()
-    // Volver a buscar el proceso por si el usuario reabre el cliente
-    this.clearLockfileWatcher()
-    this.pollProcess()
+    // NO limpiamos el watcher: el directorio de instalación no cambia.
+    // El watcher + poller siguen activos y detectarán el nuevo lockfile
+    // cuando el cliente LoL reinicie (normal durante el arranque).
   }
 }

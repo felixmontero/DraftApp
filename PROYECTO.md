@@ -1,4 +1,4 @@
-# DraftApp — Asistente de Draft para League of Legends
+ç# DraftApp — Asistente de Draft para League of Legends
 
 ## Visión del proyecto
 

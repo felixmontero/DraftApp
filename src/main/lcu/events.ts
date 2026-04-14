@@ -18,6 +18,7 @@ type DraftEndCb = () => void
 export class LcuEvents {
   private ws: WebSocket | null = null
   private credentials: LcuCredentials | null = null
+  private retryTimeout: ReturnType<typeof setTimeout> | null = null
   private draftUpdateCb: DraftUpdateCb | null = null
   private draftEndCb: DraftEndCb | null = null
 
@@ -30,8 +31,16 @@ export class LcuEvents {
   }
 
   disconnect(): void {
-    this.ws?.close()
-    this.ws = null
+    // Cancelar reintento pendiente para que no dispare openWebSocket después
+    if (this.retryTimeout) {
+      clearTimeout(this.retryTimeout)
+      this.retryTimeout = null
+    }
+    if (this.ws) {
+      this.ws.removeAllListeners()
+      this.ws.close()
+      this.ws = null
+    }
     this.credentials = null
   }
 
@@ -56,6 +65,20 @@ export class LcuEvents {
 
   private openWebSocket(): void {
     if (!this.credentials) return
+
+    // Cancelar cualquier reintento pendiente del WebSocket anterior
+    if (this.retryTimeout) {
+      clearTimeout(this.retryTimeout)
+      this.retryTimeout = null
+    }
+
+    // Cerrar WebSocket anterior para evitar conexiones duplicadas
+    if (this.ws) {
+      this.ws.removeAllListeners()
+      this.ws.close()
+      this.ws = null
+    }
+
     const { address, port, username, password } = this.credentials
 
     const authHeader = 'Basic ' + Buffer.from(`${username}:${password}`).toString('base64')
@@ -67,12 +90,21 @@ export class LcuEvents {
 
     this.ws.on('open', () => {
       console.log('[LCU] WebSocket conectado')
-      // Suscribirse a eventos del champion select
+      // Suscripción optimista (puede fallar si WELCOME no ha llegado aún)
       this.ws?.send(JSON.stringify([WAMP_SUBSCRIBE, CHAMP_SELECT_EVENT]))
     })
 
     this.ws.on('message', (data: WebSocket.RawData) => {
-      this.handleMessage(data.toString())
+      const raw = data.toString()
+      try {
+        const msg = JSON.parse(raw)
+        // WAMP WELCOME (tipo 0): el servidor está listo para aceptar suscripciones
+        if (Array.isArray(msg) && msg[0] === 0) {
+          console.log('[LCU] WAMP sesión iniciada, suscribiendo eventos...')
+          this.ws?.send(JSON.stringify([WAMP_SUBSCRIBE, CHAMP_SELECT_EVENT]))
+        }
+      } catch { /* ignorar mensajes no-JSON */ }
+      this.handleMessage(raw)
     })
 
     this.ws.on('error', (err) => {
@@ -81,6 +113,16 @@ export class LcuEvents {
 
     this.ws.on('close', () => {
       console.log('[LCU] WebSocket cerrado')
+      // Reintentar conexión si aún tenemos credenciales
+      if (this.credentials) {
+        this.retryTimeout = setTimeout(() => {
+          this.retryTimeout = null
+          if (this.credentials) {
+            console.log('[LCU] Reintentando WebSocket...')
+            this.openWebSocket()
+          }
+        }, 2000)
+      }
     })
   }
 

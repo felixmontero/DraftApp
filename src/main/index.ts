@@ -48,6 +48,8 @@ let lcuConnected = false
 const lcuClient = new LcuClient()
 const lcuEvents = new LcuEvents()
 
+let sessionPoller: ReturnType<typeof setInterval> | null = null
+
 function setupLcu(): void {
   lcuClient.onConnect(async (credentials) => {
     lcuConnected = true
@@ -61,12 +63,28 @@ function setupLcu(): void {
     if (session) {
       mainWindow?.webContents.send(IPC.DRAFT_UPDATE, session)
     }
+
+    // Sondeo REST de seguridad: si el WebSocket no detecta el champ select,
+    // este polling lo detectará en ≤3 segundos
+    if (sessionPoller) clearInterval(sessionPoller)
+    sessionPoller = setInterval(async () => {
+      if (!lcuConnected) return
+      try {
+        const s = await lcuEvents.fetchCurrentSession()
+        mainWindow?.webContents.send(IPC.DRAFT_UPDATE, s ?? null)
+      } catch { /* LCU no disponible temporalmente */ }
+    }, 3000)
   })
 
   lcuClient.onDisconnect(() => {
     lcuConnected = false
     lcuEvents.disconnect()
     mainWindow?.webContents.send(IPC.LCU_DISCONNECTED)
+
+    if (sessionPoller) {
+      clearInterval(sessionPoller)
+      sessionPoller = null
+    }
   })
 
   lcuEvents.onDraftUpdate((state) => {
@@ -82,10 +100,10 @@ function setupLcu(): void {
 
 function createWindow(): void {
   mainWindow = new BrowserWindow({
-    width: 420,
-    height: 780,
-    minWidth: 360,
-    minHeight: 600,
+    width: 940,
+    height: 580,
+    minWidth: 760,
+    minHeight: 480,
     show: false,
     frame: false,
     transparent: true,
@@ -135,32 +153,43 @@ app.whenReady().then(async () => {
   })
 
   // Protocolo custom: sirve iconos de campeón proxeados por el proceso principal
-  // ddragon://{championId} → Data Dragon CDN
+  // ddragon://{id}   → busca nombre en cachedChampionMap
+  // ddragon://{Name} → usa el nombre directamente (para recomendaciones)
+  //
+  // NOTA: con standard:true, Chromium normaliza las URLs (hostname en minúsculas,
+  // barra final). Ej: ddragon://Camille.png → ddragon://camille.png/
+  // Por eso limpiamos barras y usamos un lookup case-insensitive.
   protocol.handle('ddragon', async (request) => {
-    const champId = request.url.slice('ddragon://'.length) // e.g. "103"
-    // Intentar varias CDNs hasta que una funcione
-    const urls = [
-      `https://ddragon.leagueoflegends.com/cdn/${currentPatch}/img/champion/${cachedChampionMap[parseInt(champId)]}.png`,
-      `https://raw.communitydragon.org/${currentPatch.split('.').slice(0,2).join('.')}/plugins/rcp-be-lol-game-data/global/default/v1/champion-icons/${champId}.png`,
-      `https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default/v1/champion-icons/${champId}.png`,
-    ]
-    for (const url of urls) {
-      try {
-        const { data, headers: h } = await axios.get<ArrayBuffer>(url, {
-          responseType: 'arraybuffer',
-          timeout: 5000,
-          headers: {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-            'Referer': 'https://www.leagueoflegends.com/'
-          }
-        })
-        console.log('[ddragon] OK:', url)
-        return new Response(data, { status: 200, headers: { 'Content-Type': String(h['content-type'] ?? 'image/png') } })
-      } catch (err: any) {
-        console.warn(`[ddragon] ${err.response?.status ?? err.message}: ${url}`)
-      }
+    // Limpiar: quitar esquema, barras finales, y extensión .png
+    const raw = request.url.slice('ddragon://'.length).replace(/\/+$/g, '').replace('.png', '')
+    const numId = parseInt(raw)
+
+    let champName: string | undefined
+    if (!isNaN(numId)) {
+      champName = cachedChampionMap[numId]
+    } else {
+      // Lookup case-insensitive: Electron 41 pone el hostname en minúsculas
+      champName = Object.values(cachedChampionMap).find(
+        name => name.toLowerCase() === raw.toLowerCase()
+      )
     }
-    return new Response(null, { status: 404 })
+    if (!champName) return new Response(null, { status: 404 })
+
+    const url = `https://ddragon.leagueoflegends.com/cdn/${currentPatch}/img/champion/${champName}.png`
+    try {
+      const { data, headers: h } = await axios.get<ArrayBuffer>(url, {
+        responseType: 'arraybuffer',
+        timeout: 5000,
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+          'Referer': 'https://www.leagueoflegends.com/'
+        }
+      })
+      return new Response(data, { status: 200, headers: { 'Content-Type': String(h['content-type'] ?? 'image/png') } })
+    } catch (err: any) {
+      console.warn(`[ddragon] ${err.response?.status ?? err.message}: ${url}`)
+      return new Response(null, { status: 404 })
+    }
   })
 
   createWindow()
