@@ -1,8 +1,9 @@
 import React from 'react'
 import type { DraftState, DraftPlayer } from '@shared/types'
-
 interface Props {
   draft: DraftState | null
+  patch: string
+  championMap: Record<number, string>
 }
 
 const ROLE_LABELS: Record<string, string> = {
@@ -14,17 +15,14 @@ const ROLE_LABELS: Record<string, string> = {
   '': '?'
 }
 
-const PATCH = '14.13.1'
-
-function championIcon(championId: number): string | null {
+function championIcon(championId: number, _patch: string, _championMap: Record<number, string>): string | null {
   if (!championId) return null
-  // Fase 3: usará el mapa de nombres de Data Dragon
-  // Por ahora devuelve null — se reemplazará con el icono correcto
-  return null
+  // Protocolo custom — proxeado por proceso principal via Community Dragon
+  return `ddragon://${championId}.png`
 }
 
-function BanSlot({ championId, side }: { championId: number; side: 'ally' | 'enemy' }): React.JSX.Element {
-  const icon = championIcon(championId)
+function BanSlot({ championId, side, patch, championMap }: { championId: number; side: 'ally' | 'enemy'; patch: string; championMap: Record<number, string> }): React.JSX.Element {
+  const icon = championIcon(championId, patch, championMap)
   const isEmpty = !championId
 
   return (
@@ -42,10 +40,11 @@ function BanSlot({ championId, side }: { championId: number; side: 'ally' | 'ene
   )
 }
 
-function PickSlot({ player, side, isLocal }: { player: DraftPlayer; side: 'ally' | 'enemy'; isLocal: boolean }): React.JSX.Element {
+function PickSlot({ player, side, isLocal, patch, championMap }: { player: DraftPlayer; side: 'ally' | 'enemy'; isLocal: boolean; patch: string; championMap: Record<number, string> }): React.JSX.Element {
   const roleLabel = ROLE_LABELS[player.assignedPosition] ?? '?'
   const hasChamp = player.championId > 0
-  const icon = championIcon(player.championId)
+  const champName = hasChamp ? (championMap[player.championId] ?? `#${player.championId}`) : null
+  const icon = championIcon(player.championId, patch, championMap)
 
   return (
     <div className={`
@@ -62,34 +61,34 @@ function PickSlot({ player, side, isLocal }: { player: DraftPlayer; side: 'ally'
           : 'border-lol-border bg-lol-dark'}
       `}>
         {icon
-          ? <img src={icon} className="w-full h-full object-cover" alt="" />
+          ? <img src={icon} className="w-full h-full object-cover" alt={champName ?? ''} />
           : hasChamp
             ? <div className="w-2 h-2 rounded-full bg-lol-border-bright/50" />
             : null
         }
       </div>
-      {/* Rol */}
-      <span className={`text-xs font-medium ${
+      {/* Nombre del campeón o Rol */}
+      <span className={`text-xs font-medium truncate ${
         isLocal ? 'text-lol-gold-light' :
         side === 'ally' ? 'text-lol-text' : 'text-lol-text-dim'
       }`}>
-        {roleLabel}
+        {champName ?? roleLabel}
       </span>
       {/* Indicador "tú" */}
       {isLocal && (
-        <span className="text-lol-gold text-xs ml-auto">▶</span>
+        <span className="text-lol-gold text-xs ml-auto shrink-0">▶</span>
       )}
     </div>
   )
 }
 
-export default function DraftBoard({ draft }: Props): React.JSX.Element {
+export default function DraftBoard({ draft, patch, championMap }: Props): React.JSX.Element {
   // Obtener bans de las acciones del draft
   const allyBans = draft
-    ? draft.actions.filter(a => a.type === 'ban' && a.isAllyAction).slice(0, 5)
+    ? draft.actions.filter((a: any) => a.type === 'ban' && a.isAllyAction).slice(0, 5)
     : []
   const enemyBans = draft
-    ? draft.actions.filter(a => a.type === 'ban' && !a.isAllyAction).slice(0, 5)
+    ? draft.actions.filter((a: any) => a.type === 'ban' && !a.isAllyAction).slice(0, 5)
     : []
 
   const phase = draft?.phase ?? 'NONE'
@@ -118,13 +117,13 @@ export default function DraftBoard({ draft }: Props): React.JSX.Element {
           <div className="flex items-center justify-between">
             <div className="flex gap-1">
               {Array.from({ length: 5 }).map((_, i) => (
-                <BanSlot key={i} side="ally" championId={allyBans[i]?.championId ?? 0} />
+                <BanSlot key={i} side="ally" championId={allyBans[i]?.championId ?? 0} patch={patch} championMap={championMap} />
               ))}
             </div>
             <div className="w-px h-6 bg-lol-border mx-1" />
             <div className="flex gap-1">
               {Array.from({ length: 5 }).map((_, i) => (
-                <BanSlot key={i} side="enemy" championId={enemyBans[i]?.championId ?? 0} />
+                <BanSlot key={i} side="enemy" championId={enemyBans[i]?.championId ?? 0} patch={patch} championMap={championMap} />
               ))}
             </div>
           </div>
@@ -149,10 +148,12 @@ export default function DraftBoard({ draft }: Props): React.JSX.Element {
                     player={player}
                     side="ally"
                     isLocal={player.cellId === draft.localPlayerCellId}
+                    patch={patch}
+                    championMap={championMap}
                   />
                 ))
                 : Array.from({ length: 5 }).map((_, i) => (
-                  <PickSlot key={i} player={{ cellId: i, championId: 0, assignedPosition: '', summonerId: 0 }} side="ally" isLocal={false} />
+                  <PickSlot key={i} player={{ cellId: i, championId: 0, assignedPosition: '', summonerId: 0 }} side="ally" isLocal={false} patch={patch} championMap={championMap} />
                 ))
               }
             </div>
@@ -163,15 +164,16 @@ export default function DraftBoard({ draft }: Props): React.JSX.Element {
               </div>
               {draft
                 ? draft.theirTeam.map(player => (
-                  <PickSlot key={player.cellId} player={player} side="enemy" isLocal={false} />
+                  <PickSlot key={player.cellId} player={player} side="enemy" isLocal={false} patch={patch} championMap={championMap} />
                 ))
                 : Array.from({ length: 5 }).map((_, i) => (
-                  <PickSlot key={i} player={{ cellId: i, championId: 0, assignedPosition: '', summonerId: 0 }} side="enemy" isLocal={false} />
+                  <PickSlot key={i} player={{ cellId: i, championId: 0, assignedPosition: '', summonerId: 0 }} side="enemy" isLocal={false} patch={patch} championMap={championMap} />
                 ))
               }
             </div>
           </div>
         </div>
+
       </div>
     </div>
   )

@@ -9,6 +9,7 @@ export default function App(): React.JSX.Element {
   const [connection, setConnection] = useState<ConnectionStatus>('disconnected')
   const [draft, setDraft] = useState<DraftState | null>(null)
   const [patch, setPatch] = useState<string>(CURRENT_PATCH)
+  const [championMap, setChampionMap] = useState<Record<number, string>>({})
 
   useEffect(() => {
     // Consultar estado actual al montar (evita race condition con el evento inicial)
@@ -35,6 +36,16 @@ export default function App(): React.JSX.Element {
 
     window.api.on(IPC.PATCH_UPDATE, (p: unknown) => {
       setPatch(p as string)
+    })
+
+    window.api.on(IPC.CHAMPIONS_UPDATE, (map: unknown) => {
+      setChampionMap(map as Record<number, string>)
+    })
+
+    // Pull model: solicitar el mapa si ya estaba cargado antes de que el listener se registrase
+    window.api.invoke('champions:get').then((map: unknown) => {
+      const m = map as Record<number, string>
+      if (Object.keys(m).length > 0) setChampionMap(m)
     })
   }, [])
 
@@ -88,7 +99,7 @@ export default function App(): React.JSX.Element {
 
       {/* Contenido */}
       <div className="flex flex-col flex-1 overflow-hidden p-2 gap-2">
-        <DraftBoard draft={draft} />
+        <DraftBoard draft={draft} patch={patch} championMap={championMap} />
         <RecommendationPanel draft={draft} patch={patch} />
       </div>
 

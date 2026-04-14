@@ -28,6 +28,7 @@ export const IPC = {
   DRAFT_UPDATE: 'draft:update',
   RECOMMENDATIONS_UPDATE: 'recommendations:update',
   PATCH_UPDATE: 'patch:update',
+  CHAMPIONS_UPDATE: 'champions:update',
   // Renderer → Main
   GET_RECOMMENDATIONS: 'recommendations:get',
   GET_BUILD: 'build:get'
