@@ -216,12 +216,12 @@ Los datos se cachean localmente y se actualizan una vez por parche (~2 semanas).
 - [x] Setup de electron-builder para distribución
 - [x] Verificar hot reload en desarrollo
 
-### Fase 2 — Conexión con LCU
-- [ ] Integrar `lcu-connector`
-- [ ] Detectar cuando el cliente LoL está abierto/cerrado
-- [ ] Suscribirse al WebSocket del champion select
-- [ ] Parsear el estado del draft en tiempo real
-- [ ] Comunicar estado al renderer via IPC
+### Fase 2 — Conexión con LCU ✅
+- [x] Integrar `lcu-connector`
+- [x] Detectar cuando el cliente LoL está abierto/cerrado
+- [x] Suscribirse al WebSocket del champion select
+- [x] Parsear el estado del draft en tiempo real
+- [x] Comunicar estado al renderer via IPC
 - [ ] Testear con una partida real
 
 ### Fase 3 — Datos de campeones

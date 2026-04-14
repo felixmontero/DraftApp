@@ -1,8 +1,9 @@
 import React from 'react'
 import type { ConnectionStatus } from '@shared/types'
 
-// Fase 2: recibirá estado real via IPC
-const STATUS_MOCK: ConnectionStatus = 'disconnected'
+interface Props {
+  connection: ConnectionStatus
+}
 
 const statusConfig: Record<ConnectionStatus, {
   label: string
@@ -34,11 +35,11 @@ const statusConfig: Record<ConnectionStatus, {
   }
 }
 
-export default function StatusBar(): React.JSX.Element {
-  const { label, sub, textColor, dotColor, bgColor } = statusConfig[STATUS_MOCK]
+export default function StatusBar({ connection }: Props): React.JSX.Element {
+  const { label, sub, textColor, dotColor, bgColor } = statusConfig[connection]
 
   return (
-    <div className={`flex items-center gap-3 px-3 py-2 ${bgColor} border-b border-lol-border shrink-0`}>
+    <div className={`flex items-center gap-3 px-3 py-2 ${bgColor} border-b border-lol-border shrink-0 transition-colors duration-500`}>
       <span className={`w-2 h-2 rounded-full shrink-0 ${dotColor}`} />
       <div className="flex flex-col leading-tight">
         <span className={`text-xs font-semibold ${textColor}`}>{label}</span>

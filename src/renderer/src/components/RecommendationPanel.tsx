@@ -1,51 +1,69 @@
 import React from 'react'
 import ChampionCard from './ChampionCard'
-import type { Recommendation } from '@shared/types'
+import type { DraftState, Recommendation } from '@shared/types'
+import { ddPatchToDisplay } from '@shared/constants'
 
-// Fase 4: recibirá recomendaciones reales del engine
-// Mock data para visualizar el diseño
-const MOCK_RECOMMENDATIONS: Recommendation[] = [
-  {
-    champion: { id: 266, key: 'Aatrox', name: 'Aatrox', iconUrl: 'https://ddragon.leagueoflegends.com/cdn/14.13.1/img/champion/Aatrox.png' },
-    score: 94,
-    breakdown: { winRate: 0.54, counterScore: 0.82, synergyScore: 0.78, tierBonus: 1.0 },
-    reasons: ['Counter vs Darius', 'Sinergia con Jinx', 'S-Tier parche 14.13']
-  },
-  {
-    champion: { id: 84, key: 'Akali', name: 'Akali', iconUrl: 'https://ddragon.leagueoflegends.com/cdn/14.13.1/img/champion/Akali.png' },
-    score: 87,
-    breakdown: { winRate: 0.52, counterScore: 0.74, synergyScore: 0.65, tierBonus: 0.8 },
-    reasons: ['Counter vs Malphite', 'A-Tier parche 14.13']
-  },
-  {
-    champion: { id: 103, key: 'Ahri', name: 'Ahri', iconUrl: 'https://ddragon.leagueoflegends.com/cdn/14.13.1/img/champion/Ahri.png' },
-    score: 82,
-    breakdown: { winRate: 0.51, counterScore: 0.70, synergyScore: 0.60, tierBonus: 0.7 },
-    reasons: ['Win rate estable 51.2%']
-  },
-  {
-    champion: { id: 164, key: 'Camille', name: 'Camille', iconUrl: 'https://ddragon.leagueoflegends.com/cdn/14.13.1/img/champion/Camille.png' },
-    score: 76,
-    breakdown: { winRate: 0.50, counterScore: 0.62, synergyScore: 0.55, tierBonus: 0.6 },
-    reasons: ['Sinergia con Orianna']
-  },
-  {
-    champion: { id: 39, key: 'Irelia', name: 'Irelia', iconUrl: 'https://ddragon.leagueoflegends.com/cdn/14.13.1/img/champion/Irelia.png' },
-    score: 71,
-    breakdown: { winRate: 0.49, counterScore: 0.58, synergyScore: 0.52, tierBonus: 0.5 },
-    reasons: ['B-Tier — pick seguro']
-  }
-]
+interface Props {
+  draft: DraftState | null
+  patch: string
+}
 
-export default function RecommendationPanel(): React.JSX.Element {
-  const recommendations = MOCK_RECOMMENDATIONS
+// Fase 4: mock data para visualizar el diseño mientras el engine no está listo
+function buildMockRecommendations(patch: string): Recommendation[] {
+  const base = `https://ddragon.leagueoflegends.com/cdn/${patch}/img/champion`
+  return [
+    {
+      champion: { id: 266, key: 'Aatrox', name: 'Aatrox', iconUrl: `${base}/Aatrox.png` },
+      score: 94,
+      breakdown: { winRate: 0.54, counterScore: 0.82, synergyScore: 0.78, tierBonus: 1.0 },
+      reasons: ['Counter vs Darius', 'Sinergia con Jinx', `S-Tier parche ${ddPatchToDisplay(patch)}`]
+    },
+    {
+      champion: { id: 84, key: 'Akali', name: 'Akali', iconUrl: `${base}/Akali.png` },
+      score: 87,
+      breakdown: { winRate: 0.52, counterScore: 0.74, synergyScore: 0.65, tierBonus: 0.8 },
+      reasons: ['Counter vs Malphite', `A-Tier parche ${ddPatchToDisplay(patch)}`]
+    },
+    {
+      champion: { id: 103, key: 'Ahri', name: 'Ahri', iconUrl: `${base}/Ahri.png` },
+      score: 82,
+      breakdown: { winRate: 0.51, counterScore: 0.70, synergyScore: 0.60, tierBonus: 0.7 },
+      reasons: ['Win rate estable 51.2%']
+    },
+    {
+      champion: { id: 164, key: 'Camille', name: 'Camille', iconUrl: `${base}/Camille.png` },
+      score: 76,
+      breakdown: { winRate: 0.50, counterScore: 0.62, synergyScore: 0.55, tierBonus: 0.6 },
+      reasons: ['Sinergia con Orianna']
+    },
+    {
+      champion: { id: 39, key: 'Irelia', name: 'Irelia', iconUrl: `${base}/Irelia.png` },
+      score: 71,
+      breakdown: { winRate: 0.49, counterScore: 0.58, synergyScore: 0.52, tierBonus: 0.5 },
+      reasons: ['B-Tier — pick seguro']
+    }
+  ]
+}
+
+export default function RecommendationPanel({ draft, patch }: Props): React.JSX.Element {
+  const recommendations = draft ? buildMockRecommendations(patch) : []
+
+  const localPlayer = draft?.myTeam.find(p => p.cellId === draft.localPlayerCellId)
+  const roleLabel = localPlayer?.assignedPosition
+    ? localPlayer.assignedPosition.toUpperCase()
+    : null
+
+  // Convertir versión DD a display del juego (ej: "16.7.1" → "26.7")
+  const patchDisplay = ddPatchToDisplay(patch)
 
   return (
     <div className="flex flex-col flex-1 overflow-hidden bg-lol-surface border border-lol-border rounded-md">
       {/* Header */}
       <div className="flex items-center justify-between px-3 py-1.5 bg-lol-dark/60 border-b border-lol-border shrink-0">
         <span className="text-lol-gold text-xs font-bold uppercase tracking-wider">Recomendaciones</span>
-        <span className="text-lol-text-dim text-xs">MID · Parche 14.13</span>
+        <span className="text-lol-text-dim text-xs">
+          {roleLabel ? `${roleLabel} · ` : ''}Parche {patchDisplay}
+        </span>
       </div>
 
       {recommendations.length === 0 ? (

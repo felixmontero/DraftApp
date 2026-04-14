@@ -5,7 +5,7 @@
 | Fase | Estado | Descripción |
 |------|--------|-------------|
 | Fase 1 — Setup | ✅ Completada | Proyecto inicializado y funcionando |
-| Fase 2 — LCU | ⬜ Pendiente | Conexión con cliente LoL |
+| Fase 2 — LCU | ✅ Completada | Conexión con cliente LoL |
 | Fase 3 — Datos | ⬜ Pendiente | Data Dragon + Lolalytics |
 | Fase 4 — Engine | ⬜ Pendiente | Motor de scoring |
 | Fase 5 — Overlay UI | ⬜ Pendiente | UI completa |

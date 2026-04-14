@@ -1,15 +1,44 @@
-import React from 'react'
+import React, { useEffect, useState } from 'react'
 import StatusBar from './components/StatusBar'
 import DraftBoard from './components/DraftBoard'
 import RecommendationPanel from './components/RecommendationPanel'
+import { IPC, CURRENT_PATCH } from '@shared/constants'
+import type { ConnectionStatus, DraftState } from '@shared/types'
 
 export default function App(): React.JSX.Element {
+  const [connection, setConnection] = useState<ConnectionStatus>('disconnected')
+  const [draft, setDraft] = useState<DraftState | null>(null)
+  const [patch, setPatch] = useState<string>(CURRENT_PATCH)
+
+  useEffect(() => {
+    window.api.on(IPC.LCU_CONNECTED, () => setConnection('connected'))
+
+    window.api.on(IPC.LCU_DISCONNECTED, () => {
+      setConnection('disconnected')
+      setDraft(null)
+    })
+
+    window.api.on(IPC.DRAFT_UPDATE, (state: unknown) => {
+      if (state) {
+        setDraft(state as DraftState)
+        setConnection('in_draft')
+      } else {
+        setDraft(null)
+        setConnection('connected')
+      }
+    })
+
+    window.api.on(IPC.PATCH_UPDATE, (p: unknown) => {
+      setPatch(p as string)
+    })
+  }, [])
+
   return (
     <div className="flex flex-col h-screen panel-gradient border border-lol-border rounded-lg overflow-hidden select-none shadow-2xl">
 
       {/* Barra de título */}
       <div
-        className="h-9 bg-lol-dark flex items-center justify-between px-3 shrink-0 border-b border-lol-border"
+        className="h-9 bg-lol-dark flex items-center justify-between px-3 shrink-0 cursor-move border-b border-lol-border"
         style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}
       >
         <div className="flex items-center gap-2">
@@ -21,12 +50,10 @@ export default function App(): React.JSX.Element {
           </span>
         </div>
 
-        {/* Controles de ventana — no-drag para que sean clicables */}
         <div
           className="flex items-center gap-1"
           style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
         >
-          {/* Minimizar */}
           <button
             onClick={() => window.api.invoke('window:minimize')}
             className="w-6 h-6 rounded flex items-center justify-center text-lol-text-dim hover:text-white hover:bg-lol-surface2 transition-colors"
@@ -36,14 +63,13 @@ export default function App(): React.JSX.Element {
               <rect width="10" height="2" rx="1" />
             </svg>
           </button>
-          {/* Cerrar */}
           <button
             onClick={() => window.api.invoke('window:close')}
             className="w-6 h-6 rounded flex items-center justify-center text-lol-text-dim hover:text-white hover:bg-red-700 transition-colors"
             title="Cerrar"
           >
-            <svg width="10" height="10" viewBox="0 0 10 10" fill="currentColor">
-              <path d="M1 1l8 8M9 1l-8 8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" fill="none" />
+            <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+              <path d="M1 1l8 8M9 1l-8 8" />
             </svg>
           </button>
         </div>
@@ -53,12 +79,12 @@ export default function App(): React.JSX.Element {
       <div className="gold-line shrink-0" />
 
       {/* Status */}
-      <StatusBar />
+      <StatusBar connection={connection} />
 
       {/* Contenido */}
       <div className="flex flex-col flex-1 overflow-hidden p-2 gap-2">
-        <DraftBoard />
-        <RecommendationPanel />
+        <DraftBoard draft={draft} />
+        <RecommendationPanel draft={draft} patch={patch} />
       </div>
 
     </div>
