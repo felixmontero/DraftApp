@@ -1,4 +1,4 @@
-import { app, BrowserWindow, shell, ipcMain, protocol, net } from 'electron'
+import { app, BrowserWindow, shell, ipcMain, protocol } from 'electron'
 import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 
@@ -14,9 +14,15 @@ import { IPC } from '@shared/constants'
 import { fetchLatestPatch, fetchChampionList, buildIdMap } from './data/datadragon'
 import { fetchChampionBuild, toShortPatch } from './data/lolalytics'
 import { cache } from './data/cache'
+import { computeRecommendations } from './engine/recommendations'
+import type { DraftState } from '@shared/types'
+import type { ChampionEntry } from '@shared/types'
 import type { Role } from '@shared/constants'
 
+// ─── Estado global ─────────────────────────────────────────────────────────────
+
 let currentPatch = '16.7.1'
+let cachedChampions: ChampionEntry[] = []
 let cachedChampionMap: Record<number, string> = {}
 
 let mainWindow: BrowserWindow | null = null
@@ -27,16 +33,55 @@ const lcuEvents = new LcuEvents()
 
 let sessionPoller: ReturnType<typeof setInterval> | null = null
 
+// ─── Recomendaciones ──────────────────────────────────────────────────────────
+
+let computingRecs = false  // semáforo: evita cómputos solapados
+
+async function updateRecommendations(draft: DraftState | null): Promise<void> {
+  if (!draft || computingRecs) return
+  computingRecs = true
+  try {
+    const recs = await computeRecommendations(draft, cachedChampions, cachedChampionMap, currentPatch)
+    mainWindow?.webContents.send(IPC.RECOMMENDATIONS_UPDATE, recs)
+  } catch (err) {
+    console.warn('[Recs] Error calculando recomendaciones:', (err as Error).message)
+  } finally {
+    computingRecs = false
+  }
+}
+
+// ─── Patch polling ────────────────────────────────────────────────────────────
+// Comprueba si hay un parche nuevo cada 30 min; actualiza todo si hay cambio.
+
+const PATCH_POLL_INTERVAL = 30 * 60 * 1000  // 30 min
+
+async function checkForNewPatch(): Promise<void> {
+  const latestPatch = await fetchLatestPatch()
+  if (latestPatch === currentPatch) return
+
+  console.log(`[Patch] Nuevo parche detectado: ${currentPatch} → ${latestPatch}`)
+  currentPatch = latestPatch
+  cache.evictOldPatch(toShortPatch(currentPatch))
+
+  cachedChampions   = await fetchChampionList(currentPatch)
+  cachedChampionMap = buildIdMap(cachedChampions)
+
+  mainWindow?.webContents.send(IPC.PATCH_UPDATE,    currentPatch)
+  mainWindow?.webContents.send(IPC.CHAMPIONS_UPDATE, cachedChampionMap)
+}
+
+// ─── LCU ──────────────────────────────────────────────────────────────────────
+
 function setupLcu(): void {
   lcuClient.onConnect(async (credentials) => {
     lcuConnected = true
     lcuEvents.connect(credentials)
-
     mainWindow?.webContents.send(IPC.LCU_CONNECTED)
 
     const session = await lcuEvents.fetchCurrentSession()
     if (session) {
       mainWindow?.webContents.send(IPC.DRAFT_UPDATE, session)
+      updateRecommendations(session)
     }
 
     if (sessionPoller) clearInterval(sessionPoller)
@@ -45,6 +90,7 @@ function setupLcu(): void {
       try {
         const s = await lcuEvents.fetchCurrentSession()
         mainWindow?.webContents.send(IPC.DRAFT_UPDATE, s ?? null)
+        updateRecommendations(s)
       } catch { /* LCU no disponible temporalmente */ }
     }, 3000)
   })
@@ -53,23 +99,24 @@ function setupLcu(): void {
     lcuConnected = false
     lcuEvents.disconnect()
     mainWindow?.webContents.send(IPC.LCU_DISCONNECTED)
-
-    if (sessionPoller) {
-      clearInterval(sessionPoller)
-      sessionPoller = null
-    }
+    mainWindow?.webContents.send(IPC.RECOMMENDATIONS_UPDATE, [])
+    if (sessionPoller) { clearInterval(sessionPoller); sessionPoller = null }
   })
 
   lcuEvents.onDraftUpdate((state) => {
     mainWindow?.webContents.send(IPC.DRAFT_UPDATE, state)
+    updateRecommendations(state)
   })
 
   lcuEvents.onDraftEnd(() => {
     mainWindow?.webContents.send(IPC.DRAFT_UPDATE, null)
+    mainWindow?.webContents.send(IPC.RECOMMENDATIONS_UPDATE, [])
   })
 
   lcuClient.start()
 }
+
+// ─── Ventana principal ─────────────────────────────────────────────────────────
 
 function createWindow(): void {
   mainWindow = new BrowserWindow({
@@ -91,9 +138,7 @@ function createWindow(): void {
     }
   })
 
-  mainWindow.on('ready-to-show', () => {
-    mainWindow!.show()
-  })
+  mainWindow.on('ready-to-show', () => { mainWindow!.show() })
 
   mainWindow.webContents.setWindowOpenHandler((details) => {
     shell.openExternal(details.url)
@@ -107,23 +152,7 @@ function createWindow(): void {
   }
 }
 
-// ─── IPC handlers ─────────────────────────────────────────────────────────────
-
-ipcMain.handle('window:minimize', () => mainWindow?.minimize())
-ipcMain.handle('window:close',    () => mainWindow?.close())
-
-ipcMain.handle('lcu:getStatus',  () => lcuConnected ? 'connected' : 'disconnected')
-ipcMain.handle('champions:get',  () => cachedChampionMap)
-
-// Renderer solicita build para un campeón/rol específico (Fase 5)
-ipcMain.handle(IPC.GET_BUILD, async (_event, { champKey, role }: { champKey: string; role: Role }) => {
-  return await fetchChampionBuild(champKey, role, currentPatch)
-})
-
 // ─── Protocolo ddragon:// ──────────────────────────────────────────────────────
-// ddragon://{champName}  o  ddragon://{numericId}
-// Proxea iconos de campeón desde Data Dragon con el parche actual.
-// NOTA: con standard:true Chromium pone el hostname en minúsculas y añade barra final.
 
 function setupDdragonProtocol(): void {
   protocol.handle('ddragon', async (request) => {
@@ -166,6 +195,18 @@ function setupDdragonProtocol(): void {
   })
 }
 
+// ─── IPC handlers ─────────────────────────────────────────────────────────────
+
+ipcMain.handle('window:minimize', () => mainWindow?.minimize())
+ipcMain.handle('window:close',    () => mainWindow?.close())
+
+ipcMain.handle('lcu:getStatus',  () => lcuConnected ? 'connected' : 'disconnected')
+ipcMain.handle('champions:get',  () => cachedChampionMap)
+
+ipcMain.handle(IPC.GET_BUILD, async (_event, { champKey, role }: { champKey: string; role: Role }) => {
+  return await fetchChampionBuild(champKey, role, currentPatch)
+})
+
 // ─── Init ─────────────────────────────────────────────────────────────────────
 
 app.whenReady().then(async () => {
@@ -179,17 +220,18 @@ app.whenReady().then(async () => {
   createWindow()
   setupLcu()
 
-  // Parche actual → evict de caché obsoleta → lista de campeones
-  currentPatch = await fetchLatestPatch()
-  console.log('[Init] Parche:', currentPatch)
-
+  // Parche → evict caché obsoleta → campeones
+  currentPatch      = await fetchLatestPatch()
   cache.evictOldPatch(toShortPatch(currentPatch))
-
-  const champions = await fetchChampionList(currentPatch)
-  cachedChampionMap = buildIdMap(champions)
+  cachedChampions   = await fetchChampionList(currentPatch)
+  cachedChampionMap = buildIdMap(cachedChampions)
+  console.log(`[Init] Parche: ${currentPatch} | Campeones: ${cachedChampions.length}`)
 
   mainWindow?.webContents.send(IPC.PATCH_UPDATE,    currentPatch)
   mainWindow?.webContents.send(IPC.CHAMPIONS_UPDATE, cachedChampionMap)
+
+  // Polling de parche cada 30 min
+  setInterval(checkForNewPatch, PATCH_POLL_INTERVAL)
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()

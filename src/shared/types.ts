@@ -22,7 +22,7 @@ export interface DraftState {
   localPlayerCellId: number
   myTeam: DraftPlayer[]
   theirTeam: DraftPlayer[]
-  actions: DraftAction[][]
+  actions: DraftAction[]   // parseSession aplana el array 2D de la LCU
   phase: 'PLANNING' | 'BAN_PICK' | 'FINALIZATION' | 'NONE'
   timeLeftMs: number
 }

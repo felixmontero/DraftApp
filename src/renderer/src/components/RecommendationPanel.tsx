@@ -6,57 +6,21 @@ import { ddPatchToDisplay } from '@shared/constants'
 interface Props {
   draft: DraftState | null
   patch: string
+  recommendations: Recommendation[]
+  loading: boolean
 }
 
-// Fase 4: mock data para visualizar el diseño mientras el engine no está listo
-function buildMockRecommendations(patch: string): Recommendation[] {
-  return [
-    {
-      champion: { id: 266, key: 'Aatrox', name: 'Aatrox', iconUrl: 'ddragon://Aatrox.png' },
-      score: 94,
-      breakdown: { winRate: 0.54, counterScore: 0.82, synergyScore: 0.78, tierBonus: 1.0 },
-      reasons: ['Counter vs Darius', 'Sinergia con Jinx', `S-Tier parche ${ddPatchToDisplay(patch)}`]
-    },
-    {
-      champion: { id: 84, key: 'Akali', name: 'Akali', iconUrl: 'ddragon://Akali.png' },
-      score: 87,
-      breakdown: { winRate: 0.52, counterScore: 0.74, synergyScore: 0.65, tierBonus: 0.8 },
-      reasons: ['Counter vs Malphite', `A-Tier parche ${ddPatchToDisplay(patch)}`]
-    },
-    {
-      champion: { id: 103, key: 'Ahri', name: 'Ahri', iconUrl: 'ddragon://Ahri.png' },
-      score: 82,
-      breakdown: { winRate: 0.51, counterScore: 0.70, synergyScore: 0.60, tierBonus: 0.7 },
-      reasons: ['Win rate estable 51.2%']
-    },
-    {
-      champion: { id: 164, key: 'Camille', name: 'Camille', iconUrl: 'ddragon://Camille.png' },
-      score: 76,
-      breakdown: { winRate: 0.50, counterScore: 0.62, synergyScore: 0.55, tierBonus: 0.6 },
-      reasons: ['Sinergia con Orianna']
-    },
-    {
-      champion: { id: 39, key: 'Irelia', name: 'Irelia', iconUrl: 'ddragon://Irelia.png' },
-      score: 71,
-      breakdown: { winRate: 0.49, counterScore: 0.58, synergyScore: 0.52, tierBonus: 0.5 },
-      reasons: ['B-Tier — pick seguro']
-    }
-  ]
-}
-
-export default function RecommendationPanel({ draft, patch }: Props): React.JSX.Element {
-  const recommendations = draft ? buildMockRecommendations(patch) : []
-
-  const localPlayer = draft?.myTeam.find(p => p.cellId === draft.localPlayerCellId)
-  const roleLabel = localPlayer?.assignedPosition
-    ? localPlayer.assignedPosition.toUpperCase()
-    : null
-
-  // Convertir versión DD a display del juego (ej: "16.7.1" → "26.7")
+export default function RecommendationPanel({ draft, patch, recommendations, loading }: Props): React.JSX.Element {
+  const localPlayer  = draft?.myTeam.find(p => p.cellId === draft.localPlayerCellId)
+  const roleLabel    = localPlayer?.assignedPosition?.toUpperCase() ?? null
   const patchDisplay = ddPatchToDisplay(patch)
+
+  // Estado de la interfaz según la situación
+  const inDraft = draft !== null
 
   return (
     <div className="flex flex-col flex-1 overflow-hidden bg-lol-surface border border-lol-border rounded-md">
+
       {/* Header */}
       <div className="flex items-center justify-between px-3 py-1.5 bg-lol-dark/60 border-b border-lol-border shrink-0">
         <span className="text-lol-gold text-xs font-bold uppercase tracking-wider">Recomendaciones</span>
@@ -65,23 +29,46 @@ export default function RecommendationPanel({ draft, patch }: Props): React.JSX.
         </span>
       </div>
 
-      {recommendations.length === 0 ? (
+      {/* Cuerpo */}
+      {!inDraft ? (
+        /* Sin draft activo */
         <div className="flex-1 flex flex-col items-center justify-center text-center p-4">
           <div className="w-10 h-10 rounded-full border border-lol-border flex items-center justify-center mb-3">
             <svg className="w-5 h-5 text-lol-text-dim" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
+                d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
           </div>
           <p className="text-lol-text text-sm font-medium">Esperando champion select</p>
           <p className="text-lol-text-dim text-xs mt-1">Inicia una partida para ver recomendaciones</p>
         </div>
-      ) : (
+
+      ) : loading && recommendations.length === 0 ? (
+        /* Calculando — primera carga */
+        <div className="flex-1 flex flex-col items-center justify-center text-center p-4">
+          <div className="w-8 h-8 border-2 border-lol-gold/30 border-t-lol-gold rounded-full animate-spin mb-3" />
+          <p className="text-lol-text text-sm font-medium">Calculando recomendaciones…</p>
+          <p className="text-lol-text-dim text-xs mt-1">Obteniendo datos de Lolalytics</p>
+        </div>
+
+      ) : recommendations.length > 0 ? (
+        /* Resultados */
         <div className="flex flex-col gap-1 overflow-y-auto p-2">
           {recommendations.map((rec, i) => (
             <ChampionCard key={rec.champion.id} rec={rec} rank={i + 1} />
           ))}
         </div>
+
+      ) : (
+        /* Draft activo pero sin recomendaciones (rol sin asignar, etc.) */
+        <div className="flex-1 flex flex-col items-center justify-center text-center p-4">
+          <p className="text-lol-text text-sm font-medium">Sin recomendaciones disponibles</p>
+          <p className="text-lol-text-dim text-xs mt-1">
+            {roleLabel ? 'Datos no disponibles para este rol' : 'Esperando asignación de rol…'}
+          </p>
+        </div>
       )}
+
     </div>
   )
 }

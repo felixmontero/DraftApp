@@ -3,16 +3,17 @@ import StatusBar from './components/StatusBar'
 import DraftBoard from './components/DraftBoard'
 import RecommendationPanel from './components/RecommendationPanel'
 import { IPC, CURRENT_PATCH } from '@shared/constants'
-import type { ConnectionStatus, DraftState } from '@shared/types'
+import type { ConnectionStatus, DraftState, Recommendation } from '@shared/types'
 
 export default function App(): React.JSX.Element {
-  const [connection, setConnection] = useState<ConnectionStatus>('disconnected')
-  const [draft, setDraft] = useState<DraftState | null>(null)
-  const [patch, setPatch] = useState<string>(CURRENT_PATCH)
-  const [championMap, setChampionMap] = useState<Record<number, string>>({})
+  const [connection, setConnection]     = useState<ConnectionStatus>('disconnected')
+  const [draft, setDraft]               = useState<DraftState | null>(null)
+  const [patch, setPatch]               = useState<string>(CURRENT_PATCH)
+  const [championMap, setChampionMap]   = useState<Record<number, string>>({})
+  const [recommendations, setRecs]      = useState<Recommendation[]>([])
+  const [recsLoading, setRecsLoading]   = useState(false)
 
   useEffect(() => {
-    // Consultar estado actual al montar (evita race condition con el evento inicial)
     window.api.invoke('lcu:getStatus').then((status: unknown) => {
       if (status === 'connected') setConnection('connected')
     })
@@ -22,16 +23,26 @@ export default function App(): React.JSX.Element {
     window.api.on(IPC.LCU_DISCONNECTED, () => {
       setConnection('disconnected')
       setDraft(null)
+      setRecs([])
+      setRecsLoading(false)
     })
 
     window.api.on(IPC.DRAFT_UPDATE, (state: unknown) => {
       if (state) {
         setDraft(state as DraftState)
         setConnection('in_draft')
+        setRecsLoading(true)   // el main process empezará a calcular
       } else {
         setDraft(null)
         setConnection('connected')
+        setRecs([])
+        setRecsLoading(false)
       }
+    })
+
+    window.api.on(IPC.RECOMMENDATIONS_UPDATE, (recs: unknown) => {
+      setRecs(recs as Recommendation[])
+      setRecsLoading(false)
     })
 
     window.api.on(IPC.PATCH_UPDATE, (p: unknown) => {
@@ -42,7 +53,6 @@ export default function App(): React.JSX.Element {
       setChampionMap(map as Record<number, string>)
     })
 
-    // Pull model: solicitar el mapa si ya estaba cargado antes de que el listener se registrase
     window.api.invoke('champions:get').then((map: unknown) => {
       const m = map as Record<number, string>
       if (Object.keys(m).length > 0) setChampionMap(m)
@@ -100,7 +110,12 @@ export default function App(): React.JSX.Element {
       {/* Contenido */}
       <div className="flex flex-row flex-1 overflow-hidden p-3 gap-3">
         <DraftBoard draft={draft} patch={patch} championMap={championMap} />
-        <RecommendationPanel draft={draft} patch={patch} />
+        <RecommendationPanel
+          draft={draft}
+          patch={patch}
+          recommendations={recommendations}
+          loading={recsLoading}
+        />
       </div>
 
     </div>
