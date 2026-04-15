@@ -65,6 +65,36 @@ export interface Build {
   }
 }
 
+// ─── Data Dragon ─────────────────────────────────────────────────────────────
+
+export interface ChampionEntry {
+  id: number      // numeric id (266 = Aatrox)
+  key: string     // URL key  ("Aatrox")
+  name: string    // display  ("Aatrox")
+  tags: string[]  // ["Fighter", "Tank"]
+}
+
+// ─── Lolalytics ──────────────────────────────────────────────────────────────
+
+export type Tier = 'S' | 'A' | 'B' | 'C' | 'D'
+
+export interface Matchup {
+  champKey: string
+  winRate: number   // 0–1  (desde la perspectiva del campeón consultado)
+  games: number
+}
+
+export interface ChampionStats {
+  champKey: string
+  role: Role
+  patch: string     // short patch "16.7"
+  winRate: number   // 0–1
+  pickRate: number  // 0–1
+  banRate: number   // 0–1
+  tier: Tier
+  matchups: Matchup[]  // top matchups ordenados por juegos
+}
+
 // ─── Estado de la app ────────────────────────────────────────────────────────
 
 export type ConnectionStatus = 'disconnected' | 'connected' | 'in_draft'

@@ -224,12 +224,12 @@ Los datos se cachean localmente y se actualizan una vez por parche (~2 semanas).
 - [x] Comunicar estado al renderer via IPC
 - [ ] Testear con una partida real
 
-### Fase 3 — Datos de campeones
-- [ ] Integrar Riot Data Dragon
-- [ ] Descargar y cachear iconos de todos los campeones
-- [ ] Implementar fetcher de Lolalytics (win rates, counters, builds)
-- [ ] Sistema de caché local con actualización por parche
-- [ ] Manejo de errores offline (usar cache si no hay internet)
+### Fase 3 — Datos de campeones ✅
+- [x] Integrar Riot Data Dragon (`datadragon.ts`: fetchLatestPatch, fetchChampionList, buildIdMap)
+- [x] Iconos de campeones servidos vía protocolo custom `ddragon://` (proxy en proceso principal)
+- [x] Implementar fetcher de Lolalytics (`lolalytics.ts`: winRate, tier, matchups, items, runas)
+- [x] Sistema de caché local con electron-store (`cache.ts`: eviction por parche)
+- [x] Manejo de errores offline (retorna null → scorer usa defaults; caché previa se mantiene)
 
 ### Fase 4 — Motor de recomendaciones
 - [ ] Implementar función de scoring (win rate + counters + sinergia + tier)
