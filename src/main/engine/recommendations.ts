@@ -72,8 +72,8 @@ export async function computeRecommendations(
       if (r.status !== 'fulfilled' || !r.value) continue
       const stats = r.value
 
-      // Descartar si no tiene datos reales (wr=0 o pick rate irrisorio)
-      if (stats.winRate <= 0 || stats.pickRate < 0.001) continue
+      // Descartar solo si wr es cero absoluto (dato corrupto)
+      if (stats.winRate <= 0) continue
 
       const c = batch[j]
       scored.push(scoreChampion(

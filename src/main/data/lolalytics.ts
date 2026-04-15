@@ -152,25 +152,44 @@ function scrapeHtml(html: string): {
 }
 
 // ─── Main scrape function ─────────────────────────────────────────────────────
+// Lolalytics no acepta ?patch= — lo ignora o devuelve 404.
+// El parche activo lo determina el servidor automáticamente.
+const LOLALYTICS_URLS = (champKey: string, lane: string) => [
+  `https://lolalytics.com/lol/${champKey.toLowerCase()}/build/?lane=${lane}&tier=all`,
+  `https://lolalytics.com/lol/${champKey.toLowerCase()}/build/?lane=${lane}`,
+  `https://lolalytics.com/lol/${champKey.toLowerCase()}/`,
+]
+
 async function scrapeChampionData(
   champKey: string,
   lane: string,
   shortPatch: string
 ): Promise<{ stats: ChampionStats; build: Build } | null> {
-  const url = `https://lolalytics.com/lol/${champKey.toLowerCase()}/build/?lane=${lane}&patch=${shortPatch}`
+  let html: string | null = null
 
-  let html: string
-  try {
-    const { data } = await axios.get<string>(url, {
-      timeout: TIMEOUT,
-      headers: HEADERS,
-      responseType: 'text'
-    })
-    html = data
-  } catch (err: unknown) {
-    const e = err as { response?: { status: number }; message: string }
-    const status = e.response?.status ?? 'network'
-    console.warn(`[Lolalytics] ${champKey}/${lane}: HTTP ${status} — ${e.message}`)
+  for (const url of LOLALYTICS_URLS(champKey, lane)) {
+    try {
+      const { data } = await axios.get<string>(url, {
+        timeout: TIMEOUT,
+        headers: HEADERS,
+        responseType: 'text'
+      })
+      html = data
+      break  // success — stop trying other URLs
+    } catch (err: unknown) {
+      const e = err as { response?: { status: number }; message: string }
+      const status = e.response?.status ?? 'network'
+      if (status !== 404) {
+        // Non-404 errors (network, 5xx) — log and abort
+        console.warn(`[Lolalytics] ${champKey}/${lane}: HTTP ${status} — ${e.message}`)
+        break
+      }
+      // 404 → try next URL variant
+    }
+  }
+
+  if (!html) {
+    console.warn(`[Lolalytics] ${champKey}/${lane}: todos los URLs fallaron`)
     return null
   }
 
@@ -194,7 +213,7 @@ async function scrapeChampionData(
     role: roleMap,
     patch: shortPatch,
     winRate:  winRate  || 0.495,  // fallback neutral
-    pickRate: pickRate || 0,
+    pickRate: pickRate || 0.05,  // fallback: asume jugable en este rol
     banRate:  banRate  || 0,
     tier,
     matchups: []
