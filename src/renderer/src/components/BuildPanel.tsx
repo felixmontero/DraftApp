@@ -100,18 +100,6 @@ export default function BuildPanel({ build, championName }: Props): React.JSX.El
             ))}
           </div>
         </div>
-
-        {/* Shards */}
-        {runes.shards.length > 0 && (
-          <div>
-            <p className="text-lol-text-dim text-xs font-semibold mb-1">Shards</p>
-            <div className="flex flex-col gap-0.5">
-              {runes.shards.map((id, i) => (
-                <RuneIcon key={i} runeId={id} size="sm" />
-              ))}
-            </div>
-          </div>
-        )}
       </div>
     </div>
   )

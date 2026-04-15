@@ -37,13 +37,20 @@ let sessionPoller: ReturnType<typeof setInterval> | null = null
 // ─── Recomendaciones ──────────────────────────────────────────────────────────
 
 let computingRecs = false  // semáforo: evita cómputos solapados
+let lastRecsFingerprint = '' // fingerprint para evitar envíos redundantes
 
 async function updateRecommendations(draft: DraftState | null): Promise<void> {
   if (!draft || computingRecs) return
   computingRecs = true
   try {
     const recs = await computeRecommendations(draft, cachedChampions, cachedChampionMap, currentPatch)
-    mainWindow?.webContents.send(IPC.RECOMMENDATIONS_UPDATE, recs)
+    // Solo enviar si el set de campeones recomendados cambió
+    // (evita re-renders en el renderer que cierran el panel de build)
+    const fingerprint = recs.map(r => `${r.champion.key}:${Math.round(r.score)}`).join(',')
+    if (fingerprint !== lastRecsFingerprint) {
+      lastRecsFingerprint = fingerprint
+      mainWindow?.webContents.send(IPC.RECOMMENDATIONS_UPDATE, recs)
+    }
   } catch (err) {
     console.warn('[Recs] Error calculando recomendaciones:', (err as Error).message)
   } finally {
@@ -93,8 +100,11 @@ function setupLcu(): void {
       if (!lcuConnected) return
       try {
         const s = await lcuEvents.fetchCurrentSession()
-        mainWindow?.webContents.send(IPC.DRAFT_UPDATE, s ?? null)
-        updateRecommendations(s)
+        // Solo enviar si hay sesión activa — el WebSocket se encarga de enviar null cuando termina
+        if (s) {
+          mainWindow?.webContents.send(IPC.DRAFT_UPDATE, s)
+          updateRecommendations(s)
+        }
       } catch { /* LCU no disponible temporalmente */ }
     }, 3000)
   })
@@ -104,6 +114,7 @@ function setupLcu(): void {
     lcuEvents.disconnect()
     mainWindow?.webContents.send(IPC.LCU_DISCONNECTED)
     mainWindow?.webContents.send(IPC.RECOMMENDATIONS_UPDATE, [])
+    lastRecsFingerprint = ''
     if (sessionPoller) { clearInterval(sessionPoller); sessionPoller = null }
   })
 
@@ -115,6 +126,7 @@ function setupLcu(): void {
   lcuEvents.onDraftEnd(() => {
     mainWindow?.webContents.send(IPC.DRAFT_UPDATE, null)
     mainWindow?.webContents.send(IPC.RECOMMENDATIONS_UPDATE, [])
+    lastRecsFingerprint = ''
   })
 
   lcuClient.start()
@@ -246,6 +258,7 @@ app.whenReady().then(async () => {
   // Parche → evict caché obsoleta → campeones + runas
   currentPatch      = await fetchLatestPatch()
   cache.evictOldPatch(toShortPatch(currentPatch))
+  cache.clearBuildsAndStats()  // Invalidar builds/stats cacheados con datos viejos del scraper
   ;[cachedChampions, cachedRuneMap] = await Promise.all([
     fetchChampionList(currentPatch),
     fetchRuneIconMap(currentPatch)

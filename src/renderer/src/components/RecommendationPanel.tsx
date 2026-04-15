@@ -23,30 +23,43 @@ export default function RecommendationPanel({ draft, patch, recommendations, loa
   const [selectedBuild, setSelectedBuild] = useState<Build | null>(null)
   const [buildLoading, setBuildLoading] = useState(false)
 
-  // Reset selection when new recommendations arrive
+  // Refs para evitar closures obsoletas en handleSelect
+  const selectedKeyRef = React.useRef<string | null>(null)
+  const roleRef = React.useRef<Role | undefined>(undefined)
+  selectedKeyRef.current = selectedKey
+  roleRef.current = role
+
+  // Resetear selección solo cuando comienza un champion select NUEVO (draft pasa de null → no-null)
+  // No resetear cuando draft pasa a null — el poller puede enviar null momentáneamente
+  const prevDraftRef = React.useRef<DraftState | null>(null)
   React.useEffect(() => {
-    setSelectedKey(null)
-    setSelectedBuild(null)
-  }, [recommendations])
+    if (draft !== null && prevDraftRef.current === null) {
+      setSelectedKey(null)
+      setSelectedBuild(null)
+    }
+    prevDraftRef.current = draft
+  }, [draft])
 
   const handleSelect = useCallback(async (key: string, name: string) => {
-    if (selectedKey === key) {
+    // Usar refs para evitar closures obsoletas — esto evita que el callback
+    // se recree en cada render, lo que causa re-renders innecesarios en los hijos
+    if (selectedKeyRef.current === key) {
       setSelectedKey(null)
       setSelectedBuild(null)
       return
     }
-    if (!role) return
+    if (!roleRef.current) return
     setSelectedKey(key)
     setSelectedName(name)
     setSelectedBuild(null)
     setBuildLoading(true)
     try {
-      const build = await window.api.invoke(IPC.GET_BUILD, { champKey: key, role }) as Build | null
+      const build = await window.api.invoke(IPC.GET_BUILD, { champKey: key, role: roleRef.current }) as Build | null
       setSelectedBuild(build)
     } finally {
       setBuildLoading(false)
     }
-  }, [selectedKey, role])
+  }, [])  // Sin dependencias — usa refs
 
   const inDraft = draft !== null
 

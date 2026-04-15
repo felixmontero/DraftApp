@@ -4,15 +4,7 @@ import type { DraftState, ChampionEntry, Recommendation } from '@shared/types'
 import type { Role } from '@shared/constants'
 import { fetchChampionStats } from '../data/lolalytics'
 import { scoreChampion } from './scorer'
-
-// Tags de Data Dragon que abarca cada rol (red amplia para pillar flex picks)
-const ROLE_TAGS: Record<Role, string[]> = {
-  top:     ['Fighter', 'Tank', 'Mage'],
-  jungle:  ['Fighter', 'Assassin', 'Tank', 'Marksman'],
-  middle:  ['Mage', 'Assassin', 'Fighter', 'Marksman'],
-  bottom:  ['Marksman', 'Mage'],
-  utility: ['Support', 'Tank', 'Mage']
-}
+import { hasStaticEntry } from '../data/tierlist'
 
 const MAX_CANDIDATES = 35   // candidatos a evaluar por consulta
 const CONCURRENT     = 8    // requests concurrentes a Lolalytics
@@ -50,10 +42,11 @@ export async function computeRecommendations(
     .filter((k): k is string => Boolean(k))
 
   // 4. Pool de candidatos: filtrado por rol y disponibilidad
-  const roleTags  = ROLE_TAGS[role]
+  // Se usa el tier list estático como fuente de verdad del rol (evita que
+  // campeones de mid con tag Mage/Fighter aparezcan en top/jungle/etc.)
   const candidates = champions
     .filter(c => !unavailable.has(c.id))
-    .filter(c => c.tags.some(t => roleTags.includes(t)))
+    .filter(c => hasStaticEntry(c.key, role))
     .slice(0, MAX_CANDIDATES)
 
   if (candidates.length === 0) return []

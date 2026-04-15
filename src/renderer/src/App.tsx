@@ -31,7 +31,12 @@ export default function App(): React.JSX.Element {
       if (state) {
         setDraft(state as DraftState)
         setConnection('in_draft')
-        setRecsLoading(true)   // el main process empezará a calcular
+        // Solo marcar loading si aún no tenemos recomendaciones —
+        // evita re-renders innecesarios que cierran el panel de build desplegado
+        setRecs(prevRecs => {
+          if (prevRecs.length === 0) setRecsLoading(true)
+          return prevRecs
+        })
       } else {
         setDraft(null)
         setConnection('connected')

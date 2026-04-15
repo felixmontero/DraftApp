@@ -26,6 +26,19 @@ export const cache = {
       }
     }
     if (evicted > 0) console.log(`[Cache] Evicted ${evicted} entries de parche anterior`)
+  },
+
+  /** Elimina todas las entradas de builds y stats (para invalidar tras cambios en el scraper) */
+  clearBuildsAndStats(): void {
+    const all = store.store as Record<string, unknown>
+    let cleared = 0
+    for (const key of Object.keys(all)) {
+      if (key.startsWith('stats:') || key.startsWith('build:')) {
+        store.delete(key)
+        cleared++
+      }
+    }
+    if (cleared > 0) console.log(`[Cache] Cleared ${cleared} build/stats entries`)
   }
 }
 
