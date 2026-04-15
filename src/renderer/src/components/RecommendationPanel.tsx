@@ -1,7 +1,9 @@
-import React from 'react'
+import React, { useState, useCallback } from 'react'
 import ChampionCard from './ChampionCard'
-import type { DraftState, Recommendation } from '@shared/types'
-import { ddPatchToDisplay } from '@shared/constants'
+import BuildPanel from './BuildPanel'
+import type { DraftState, Recommendation, Build } from '@shared/types'
+import type { Role } from '@shared/constants'
+import { ddPatchToDisplay, IPC } from '@shared/constants'
 
 interface Props {
   draft: DraftState | null
@@ -13,9 +15,39 @@ interface Props {
 export default function RecommendationPanel({ draft, patch, recommendations, loading }: Props): React.JSX.Element {
   const localPlayer  = draft?.myTeam.find(p => p.cellId === draft.localPlayerCellId)
   const roleLabel    = localPlayer?.assignedPosition?.toUpperCase() ?? null
+  const role         = localPlayer?.assignedPosition as Role | undefined
   const patchDisplay = ddPatchToDisplay(patch)
 
-  // Estado de la interfaz según la situación
+  const [selectedKey,  setSelectedKey]  = useState<string | null>(null)
+  const [selectedName, setSelectedName] = useState<string>('')
+  const [selectedBuild, setSelectedBuild] = useState<Build | null>(null)
+  const [buildLoading, setBuildLoading] = useState(false)
+
+  // Reset selection when new recommendations arrive
+  React.useEffect(() => {
+    setSelectedKey(null)
+    setSelectedBuild(null)
+  }, [recommendations])
+
+  const handleSelect = useCallback(async (key: string, name: string) => {
+    if (selectedKey === key) {
+      setSelectedKey(null)
+      setSelectedBuild(null)
+      return
+    }
+    if (!role) return
+    setSelectedKey(key)
+    setSelectedName(name)
+    setSelectedBuild(null)
+    setBuildLoading(true)
+    try {
+      const build = await window.api.invoke(IPC.GET_BUILD, { champKey: key, role }) as Build | null
+      setSelectedBuild(build)
+    } finally {
+      setBuildLoading(false)
+    }
+  }, [selectedKey, role])
+
   const inDraft = draft !== null
 
   return (
@@ -29,9 +61,8 @@ export default function RecommendationPanel({ draft, patch, recommendations, loa
         </span>
       </div>
 
-      {/* Cuerpo */}
+      {/* Body */}
       {!inDraft ? (
-        /* Sin draft activo */
         <div className="flex-1 flex flex-col items-center justify-center text-center p-4">
           <div className="w-10 h-10 rounded-full border border-lol-border flex items-center justify-center mb-3">
             <svg className="w-5 h-5 text-lol-text-dim" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -44,7 +75,6 @@ export default function RecommendationPanel({ draft, patch, recommendations, loa
         </div>
 
       ) : loading && recommendations.length === 0 ? (
-        /* Calculando — primera carga */
         <div className="flex-1 flex flex-col items-center justify-center text-center p-4">
           <div className="w-8 h-8 border-2 border-lol-gold/30 border-t-lol-gold rounded-full animate-spin mb-3" />
           <p className="text-lol-text text-sm font-medium">Calculando recomendaciones…</p>
@@ -52,15 +82,37 @@ export default function RecommendationPanel({ draft, patch, recommendations, loa
         </div>
 
       ) : recommendations.length > 0 ? (
-        /* Resultados */
-        <div className="flex flex-col gap-1 overflow-y-auto p-2">
+        <div className="flex flex-col overflow-y-auto p-2 gap-1">
           {recommendations.map((rec, i) => (
-            <ChampionCard key={rec.champion.id} rec={rec} rank={i + 1} />
+            <React.Fragment key={rec.champion.id}>
+              <ChampionCard
+                rec={rec}
+                rank={i + 1}
+                selected={selectedKey === rec.champion.key}
+                onClick={() => handleSelect(rec.champion.key, rec.champion.name)}
+              />
+              {/* Inline build panel */}
+              {selectedKey === rec.champion.key && (
+                buildLoading
+                  ? (
+                    <div className="flex items-center gap-2 px-3 py-2 text-lol-text-dim text-xs">
+                      <div className="w-4 h-4 border border-lol-gold/30 border-t-lol-gold rounded-full animate-spin" />
+                      Cargando build…
+                    </div>
+                  )
+                  : selectedBuild
+                    ? <BuildPanel build={selectedBuild} championName={selectedName} />
+                    : (
+                      <p className="text-lol-text-dim text-xs px-3 py-1">
+                        Build no disponible para este campeón/rol
+                      </p>
+                    )
+              )}
+            </React.Fragment>
           ))}
         </div>
 
       ) : (
-        /* Draft activo pero sin recomendaciones (rol sin asignar, etc.) */
         <div className="flex-1 flex flex-col items-center justify-center text-center p-4">
           <p className="text-lol-text text-sm font-medium">Sin recomendaciones disponibles</p>
           <p className="text-lol-text-dim text-xs mt-1">

@@ -64,7 +64,47 @@ export function buildIdMap(champions: ChampionEntry[]): Record<number, string> {
   return map
 }
 
-/** URL pública del icono cuadrado de un campeón (no usa caché custom, solo HTTPS directo) */
+/** URL pública del icono cuadrado de un campeón */
 export function champIconUrl(champKey: string, patch: string): string {
   return `${DATA_DRAGON_BASE}/cdn/${patch}/img/champion/${champKey}.png`
+}
+
+/**
+ * Descarga runesReforged.json y construye un mapa runeId → URL del icono.
+ * Los iconos de runas no llevan versión de parche en la URL.
+ */
+export async function fetchRuneIconMap(patch: string): Promise<Record<number, string>> {
+  const key = `rune-icons:${patch}`
+  const cached = cache.get<Record<number, string>>(key)
+  if (cached) return cached
+
+  try {
+    const { data } = await axios.get<RuneStyle[]>(
+      `${DATA_DRAGON_BASE}/cdn/${patch}/data/en_US/runesReforged.json`,
+      { timeout: TIMEOUT }
+    )
+    const map: Record<number, string> = {}
+    for (const style of data) {
+      map[style.id] = `${DATA_DRAGON_BASE}/cdn/img/${style.icon}`
+      for (const slot of style.slots) {
+        for (const rune of slot.runes) {
+          map[rune.id] = `${DATA_DRAGON_BASE}/cdn/img/${rune.icon}`
+        }
+      }
+    }
+    cache.set(key, map)
+    console.log(`[DataDragon] ${Object.keys(map).length} iconos de runas cargados`)
+    return map
+  } catch (err) {
+    console.warn('[DataDragon] No se pudieron cargar iconos de runas:', (err as Error).message)
+    return {}
+  }
+}
+
+interface RuneStyle {
+  id: number
+  key: string
+  icon: string
+  name: string
+  slots: { runes: { id: number; key: string; icon: string; name: string }[] }[]
 }

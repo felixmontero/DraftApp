@@ -11,7 +11,7 @@ import axios from 'axios'
 import { LcuClient } from './lcu/connector'
 import { LcuEvents } from './lcu/events'
 import { IPC } from '@shared/constants'
-import { fetchLatestPatch, fetchChampionList, buildIdMap } from './data/datadragon'
+import { fetchLatestPatch, fetchChampionList, buildIdMap, fetchRuneIconMap } from './data/datadragon'
 import { fetchChampionBuild, toShortPatch } from './data/lolalytics'
 import { cache } from './data/cache'
 import { computeRecommendations } from './engine/recommendations'
@@ -24,6 +24,7 @@ import type { Role } from '@shared/constants'
 let currentPatch = '16.7.1'
 let cachedChampions: ChampionEntry[] = []
 let cachedChampionMap: Record<number, string> = {}
+let cachedRuneMap: Record<number, string> = {}   // runeId → iconUrl (HTTPS)
 
 let mainWindow: BrowserWindow | null = null
 let lcuConnected = false
@@ -63,7 +64,10 @@ async function checkForNewPatch(): Promise<void> {
   currentPatch = latestPatch
   cache.evictOldPatch(toShortPatch(currentPatch))
 
-  cachedChampions   = await fetchChampionList(currentPatch)
+  ;[cachedChampions, cachedRuneMap] = await Promise.all([
+    fetchChampionList(currentPatch),
+    fetchRuneIconMap(currentPatch)
+  ])
   cachedChampionMap = buildIdMap(cachedChampions)
 
   mainWindow?.webContents.send(IPC.PATCH_UPDATE,    currentPatch)
@@ -154,16 +158,52 @@ function createWindow(): void {
 
 // ─── Protocolo ddragon:// ──────────────────────────────────────────────────────
 
+async function fetchImage(url: string): Promise<Response> {
+  try {
+    const { data, headers: h } = await axios.get<ArrayBuffer>(url, {
+      responseType: 'arraybuffer',
+      timeout: 5000,
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
+        'Referer':    'https://www.leagueoflegends.com/'
+      }
+    })
+    return new Response(data, {
+      status: 200,
+      headers: { 'Content-Type': String(h['content-type'] ?? 'image/png') }
+    })
+  } catch (err: unknown) {
+    const e = err as { response?: { status: number }; message: string }
+    console.warn(`[ddragon] ${e.response?.status ?? e.message}: ${url}`)
+    return new Response(null, { status: 404 })
+  }
+}
+
 function setupDdragonProtocol(): void {
   protocol.handle('ddragon', async (request) => {
     const raw = request.url
       .slice('ddragon://'.length)
       .replace(/\/+$/g, '')
-      .replace(/\.png$/i, '')
+      .replace(/\.(png|webp)$/i, '')
 
+    // ── Item: ddragon://item/1001 ────────────────────────────────────────────
+    if (raw.startsWith('item/')) {
+      const itemId = raw.slice(5)
+      const url = `https://ddragon.leagueoflegends.com/cdn/${currentPatch}/img/item/${itemId}.png`
+      return fetchImage(url)
+    }
+
+    // ── Rune: ddragon://rune/8112 ────────────────────────────────────────────
+    if (raw.startsWith('rune/')) {
+      const runeId = parseInt(raw.slice(5), 10)
+      const iconUrl = cachedRuneMap[runeId]
+      if (!iconUrl) return new Response(null, { status: 404 })
+      return fetchImage(iconUrl)
+    }
+
+    // ── Champion: ddragon://266 or ddragon://Aatrox ──────────────────────────
     const numId = parseInt(raw, 10)
     let champName: string | undefined
-
     if (!isNaN(numId)) {
       champName = cachedChampionMap[numId]
     } else {
@@ -174,24 +214,7 @@ function setupDdragonProtocol(): void {
     if (!champName) return new Response(null, { status: 404 })
 
     const url = `https://ddragon.leagueoflegends.com/cdn/${currentPatch}/img/champion/${champName}.png`
-    try {
-      const { data, headers: h } = await axios.get<ArrayBuffer>(url, {
-        responseType: 'arraybuffer',
-        timeout: 5000,
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
-          'Referer':    'https://www.leagueoflegends.com/'
-        }
-      })
-      return new Response(data, {
-        status: 200,
-        headers: { 'Content-Type': String(h['content-type'] ?? 'image/png') }
-      })
-    } catch (err: unknown) {
-      const e = err as { response?: { status: number }; message: string }
-      console.warn(`[ddragon] ${e.response?.status ?? e.message}: ${url}`)
-      return new Response(null, { status: 404 })
-    }
+    return fetchImage(url)
   })
 }
 
@@ -220,12 +243,15 @@ app.whenReady().then(async () => {
   createWindow()
   setupLcu()
 
-  // Parche → evict caché obsoleta → campeones
+  // Parche → evict caché obsoleta → campeones + runas
   currentPatch      = await fetchLatestPatch()
   cache.evictOldPatch(toShortPatch(currentPatch))
-  cachedChampions   = await fetchChampionList(currentPatch)
+  ;[cachedChampions, cachedRuneMap] = await Promise.all([
+    fetchChampionList(currentPatch),
+    fetchRuneIconMap(currentPatch)
+  ])
   cachedChampionMap = buildIdMap(cachedChampions)
-  console.log(`[Init] Parche: ${currentPatch} | Campeones: ${cachedChampions.length}`)
+  console.log(`[Init] Parche: ${currentPatch} | Campeones: ${cachedChampions.length} | Runas: ${Object.keys(cachedRuneMap).length}`)
 
   mainWindow?.webContents.send(IPC.PATCH_UPDATE,    currentPatch)
   mainWindow?.webContents.send(IPC.CHAMPIONS_UPDATE, cachedChampionMap)
