@@ -2,7 +2,6 @@
 // Un solo request por campeón/rol → parsea stats Y build, cachea ambos
 
 import axios from 'axios'
-import { LOLALYTICS_BASE } from '@shared/constants'
 import type { ChampionStats, Build, Tier, Matchup, Role } from '@shared/types'
 import { cache, keys } from './cache'
 
@@ -15,8 +14,21 @@ const LANE: Record<Role, string> = {
   utility: 'support'
 }
 
-const TIMEOUT = 10_000
-const HEADERS  = { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)' }
+// El API de Lolalytics está en axe.lolalytics.com (distinto del site público)
+const API_BASE = 'https://axe.lolalytics.com'
+
+const TIMEOUT = 12_000
+// Headers que imitan un navegador real (necesarios para que no devuelva 403/404)
+const HEADERS = {
+  'User-Agent':      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+  'Accept':          'application/json, text/plain, */*',
+  'Accept-Language': 'en-US,en;q=0.9',
+  'Origin':          'https://lolalytics.com',
+  'Referer':         'https://lolalytics.com/',
+  'sec-fetch-site':  'same-site',
+  'sec-fetch-mode':  'cors',
+  'sec-fetch-dest':  'empty'
+}
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -51,16 +63,50 @@ interface LolalyticsRaw {
   [k: string]: any
 }
 
+// Variantes de URL a probar en orden hasta que una funcione
+function buildUrls(champKey: string, lane: string, shortPatch: string): string[] {
+  const base = `${API_BASE}/mega/?ep=champion&p=d&v=1`
+  return [
+    `${base}&lane=${lane}&tier=all&queue=ranked&patch=${shortPatch}&c=${champKey}`,
+    `${base}&lanes=${lane}&tier=all&queue=ranked&patch=${shortPatch}&c=${champKey}`,
+    `${base}&lane=${lane}&tier=all&queue=420&patch=${shortPatch}&c=${champKey}`,
+    `${base}&lane=default&tier=all&queue=ranked&patch=${shortPatch}&c=${champKey}`,
+  ]
+}
+
+// Control para loguear la respuesta completa solo en el primer fallo (debug)
+let _firstErrorLogged = false
+
 async function fetchRaw(champKey: string, lane: string, shortPatch: string): Promise<LolalyticsRaw | null> {
-  const url = `${LOLALYTICS_BASE}/mega/?ep=champion&p=d&v=1&lanes=${lane}&tier=all&queue=420&patch=${shortPatch}&c=${champKey}`
-  try {
-    const { data } = await axios.get<LolalyticsRaw>(url, { timeout: TIMEOUT, headers: HEADERS })
-    return data
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err)
-    console.warn(`[Lolalytics] ${champKey}/${lane} error: ${msg}`)
-    return null
+  const urls = buildUrls(champKey, lane, shortPatch)
+
+  for (const url of urls) {
+    try {
+      const { data } = await axios.get<LolalyticsRaw>(url, { timeout: TIMEOUT, headers: HEADERS })
+      if (data && typeof data === 'object' && !Array.isArray(data)) {
+        return data
+      }
+    } catch (err: unknown) {
+      const axErr = err as { response?: { status: number; data?: unknown }; message: string }
+      const status  = axErr.response?.status
+      const body    = axErr.response?.data
+
+      // En el primer error, loguear la respuesta completa para ayudar a depurar
+      if (!_firstErrorLogged) {
+        _firstErrorLogged = true
+        console.warn(`[Lolalytics][DEBUG] URL probada: ${url}`)
+        console.warn(`[Lolalytics][DEBUG] Status: ${status} | Body: ${JSON.stringify(body)?.slice(0, 300)}`)
+        console.warn(`[Lolalytics][DEBUG] Si ves este error, abre lolalytics.com en el navegador,`)
+        console.warn(`[Lolalytics][DEBUG] ve a DevTools → Network → filtra por Fetch/XHR y copia`)
+        console.warn(`[Lolalytics][DEBUG] la URL de la primera llamada API que aparezca.`)
+      }
+
+      if (status && status !== 404 && status !== 403) break  // error inesperado, no reintentar
+    }
   }
+
+  console.warn(`[Lolalytics] ${champKey}/${lane}: no se pudo obtener datos (404/403 en todas las variantes)`)
+  return null
 }
 
 function parseStats(data: LolalyticsRaw, champKey: string, role: Role, shortPatch: string): ChampionStats {
