@@ -1,20 +1,31 @@
-import axios from 'axios'
+import { net } from 'electron'
 import * as cheerio from 'cheerio'
 import type { ChampionStats, Build, Tier, Role } from '@shared/types'
 import { cache, keys } from './cache'
+import { getStaticEntry } from './tierlist'
 
 // ─── Role mapping ─────────────────────────────────────────────────────────────
 const LANE: Record<Role, string> = {
   top: 'top', jungle: 'jungle', middle: 'mid', bottom: 'adc', utility: 'support'
 }
 
-const TIMEOUT = 15_000
-const HEADERS = {
+// net.fetch usa el stack de red de Chromium — mismo fingerprint TLS que Chrome
+const HEADERS: Record<string, string> = {
   'User-Agent':      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
   'Accept':          'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
   'Accept-Language': 'en-US,en;q=0.9',
   'Cache-Control':   'no-cache',
-  'Pragma':          'no-cache',
+}
+
+async function fetchHtml(url: string): Promise<{ html: string; status: number } | null> {
+  try {
+    const res = await net.fetch(url, { headers: HEADERS })
+    if (!res.ok) return { html: '', status: res.status }
+    return { html: await res.text(), status: res.status }
+  } catch (err) {
+    console.warn(`[Lolalytics] net.fetch error: ${(err as Error).message}`)
+    return null
+  }
 }
 
 const RUNE_PATHS: Record<number, string> = {
@@ -168,28 +179,34 @@ async function scrapeChampionData(
   let html: string | null = null
 
   for (const url of LOLALYTICS_URLS(champKey, lane)) {
-    try {
-      const { data } = await axios.get<string>(url, {
-        timeout: TIMEOUT,
-        headers: HEADERS,
-        responseType: 'text'
-      })
-      html = data
-      break  // success — stop trying other URLs
-    } catch (err: unknown) {
-      const e = err as { response?: { status: number }; message: string }
-      const status = e.response?.status ?? 'network'
-      if (status !== 404) {
-        // Non-404 errors (network, 5xx) — log and abort
-        console.warn(`[Lolalytics] ${champKey}/${lane}: HTTP ${status} — ${e.message}`)
-        break
-      }
-      // 404 → try next URL variant
+    const result = await fetchHtml(url)
+    if (!result) break                        // network error — abort
+    if (result.status === 200 && result.html) { html = result.html; break }
+    if (result.status !== 404) {
+      console.warn(`[Lolalytics] ${champKey}/${lane}: HTTP ${result.status}`)
+      break
     }
+    // 404 → try next variant
   }
 
   if (!html) {
-    console.warn(`[Lolalytics] ${champKey}/${lane}: todos los URLs fallaron`)
+    // Fallback: usar datos estáticos del tier list embebido
+    const roleMap = (Object.entries(LANE).find(([, v]) => v === lane)?.[0] ?? 'middle') as Role
+    const staticEntry = getStaticEntry(champKey, roleMap)
+    if (staticEntry) {
+      console.log(`[Lolalytics] ${champKey}/${lane}: usando datos estáticos (tier ${staticEntry.tier})`)
+      const stats: ChampionStats = {
+        champKey, role: roleMap, patch: shortPatch,
+        winRate: staticEntry.winRate, pickRate: 0.05, banRate: 0,
+        tier: staticEntry.tier, matchups: []
+      }
+      const build: Build = {
+        championId: 0, role: roleMap, items: [],
+        runes: { primaryPath: 8000, primaryRunes: [], secondaryPath: 8100, secondaryRunes: [], shards: [] }
+      }
+      return { stats, build }
+    }
+    console.warn(`[Lolalytics] ${champKey}/${lane}: sin datos (ni live ni estáticos)`)
     return null
   }
 
