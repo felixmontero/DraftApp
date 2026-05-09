@@ -156,7 +156,7 @@ export class LcuEvents {
 
 // ─── Parser: LcuSession → DraftState ─────────────────────────────────────────
 
-function parseSession(session: LcuSession): DraftState {
+export function parseSession(session: LcuSession): DraftState {
   const actions = session.actions?.flat() ?? []
 
   return {

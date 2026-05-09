@@ -6,7 +6,7 @@ import { normalizeChampionKey } from '@shared/championKeys'
 import { fetchChampionStats, fetchEnemyCounterData } from '../data/lolalytics'
 import { scoreChampion, type DraftPhase } from './scorer'
 import { hasStaticEntry, getStaticEntry } from '../data/tierlist'
-import { analyzeComposition } from './composition'
+import { analyzeComposition, compositionScore, getDamageType, type CompositionNeeds } from './composition'
 
 const MAX_CANDIDATES = 50
 const CONCURRENT     = 8
@@ -37,7 +37,8 @@ function makeBanRecommendation(
   stats: Awaited<ReturnType<typeof fetchChampionStats>> | null,
   role: Role,
   allyKeys: string[],
-  enemyKeys: string[]
+  enemyKeys: string[],
+  enemyNeeds: CompositionNeeds
 ): Recommendation {
   const staticEntry = getStaticEntry(candidate.key, role)
   const tier = stats?.tier ?? staticEntry?.tier ?? 'C'
@@ -49,15 +50,22 @@ function makeBanRecommendation(
   const popularityScore = Math.max(0, Math.min(1, pickRate / 0.12))
   const banPressure = Math.max(0, Math.min(1, banRate / 0.18))
   const tierBonus = TIER_THREAT[tier] ?? 0.42
+  const enemyFitScore = compositionScore(candidate.key, candidate.tags, enemyNeeds)
 
   const score = Math.round(
-    (tierBonus * 0.42 + winRateScore * 0.28 + popularityScore * 0.18 + banPressure * 0.12) * 100
+    (tierBonus * 0.34 + winRateScore * 0.24 + popularityScore * 0.14 + banPressure * 0.10 + enemyFitScore * 0.18) * 100
   )
 
   const reasons: string[] = []
+  const candidateDmg = getDamageType(candidate.key, candidate.tags)
+  const has = (tag: string) => candidate.tags.includes(tag)
   if (tier === 'S') reasons.push('Amenaza S-Tier')
   else if (tier === 'A') reasons.push('Amenaza A-Tier')
   if (rawWR >= 0.515) reasons.push(`WR ${(rawWR * 100).toFixed(1)}%`)
+  if (enemyNeeds.needsAP && (candidateDmg === 'AP' || candidateDmg === 'MIX')) reasons.push('Cubre AP rival')
+  if (enemyNeeds.needsAD && (candidateDmg === 'AD' || candidateDmg === 'MIX')) reasons.push('Cubre AD rival')
+  if (enemyNeeds.needsFrontline && (has('Tank') || has('Fighter'))) reasons.push('Cubre frontline rival')
+  if (enemyNeeds.needsPeel && has('Support')) reasons.push('Cubre peel rival')
   if (pickRate >= 0.08) reasons.push('Alta presencia')
   if (banRate >= 0.08) reasons.push('Ban frecuente')
   if (allyKeys.length > 0 || enemyKeys.length > 0) reasons.push('Impacto alto en este draft')
@@ -74,7 +82,7 @@ function makeBanRecommendation(
     breakdown: {
       winRate: rawWR,
       counterScore: banPressure,
-      synergyScore: popularityScore,
+      synergyScore: enemyFitScore,
       tierBonus
     },
     reasons: reasons.slice(0, 3)
@@ -108,6 +116,7 @@ async function computeBanRecommendations(
     .filter(p => p.championId !== 0)
     .map(p => idMap[p.championId])
     .filter((k): k is string => Boolean(k))
+  const enemyNeeds = analyzeComposition(enemyKeys, allyKeys, champions)
 
   const candidates = champions
     .filter(c => !unavailable.has(c.id))
@@ -132,7 +141,7 @@ async function computeBanRecommendations(
     for (let j = 0; j < batch.length; j++) {
       const result = results[j]
       const stats = result.status === 'fulfilled' ? result.value : null
-      scored.push(makeBanRecommendation(batch[j], stats, role, allyKeys, enemyKeys))
+      scored.push(makeBanRecommendation(batch[j], stats, role, allyKeys, enemyKeys, enemyNeeds))
     }
   }
 

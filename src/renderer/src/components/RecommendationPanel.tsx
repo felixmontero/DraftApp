@@ -10,9 +10,10 @@ interface Props {
   patch: string
   recommendations: Recommendation[]
   loading: boolean
+  compact?: boolean
 }
 
-export default function RecommendationPanel({ draft, patch, recommendations, loading }: Props): React.JSX.Element {
+export default function RecommendationPanel({ draft, patch, recommendations, loading, compact = false }: Props): React.JSX.Element {
   const localPlayer  = draft?.myTeam.find(p => p.cellId === draft.localPlayerCellId)
   const roleLabel    = localPlayer?.assignedPosition?.toUpperCase() ?? null
   const role         = localPlayer?.assignedPosition as Role | undefined
@@ -83,8 +84,8 @@ export default function RecommendationPanel({ draft, patch, recommendations, loa
       {/* Header */}
       <div className="flex items-center justify-between px-3 py-1.5 bg-lol-dark/60 border-b border-lol-border shrink-0">
         <span className="text-lol-gold text-xs font-bold uppercase tracking-wider">{contextLabel}</span>
-        <span className="text-lol-text-dim text-xs">
-          {roleLabel ? `${roleLabel} · ` : ''}Parche {patchDisplay}
+        <span className="text-lol-text-dim text-xs truncate">
+          {roleLabel ? `${roleLabel} - ` : ''}{compact ? 'Compacto' : `Parche ${patchDisplay}`}
         </span>
       </div>
 
@@ -110,7 +111,7 @@ export default function RecommendationPanel({ draft, patch, recommendations, loa
 
       ) : recommendations.length > 0 ? (
         <div className="flex flex-col overflow-y-auto p-2 gap-1">
-          {recommendations.map((rec, i) => (
+          {(compact ? recommendations.slice(0, 3) : recommendations).map((rec, i) => (
             <React.Fragment key={rec.champion.id}>
               <ChampionCard
                 rec={rec}
@@ -119,8 +120,7 @@ export default function RecommendationPanel({ draft, patch, recommendations, loa
                 selected={selectedKey === rec.champion.key}
                 onClick={() => handleSelect(rec.champion.key, rec.champion.name)}
               />
-              {/* Inline build panel */}
-              {selectedKey === rec.champion.key && (
+              {!compact && selectedKey === rec.champion.key && (
                 buildLoading
                   ? (
                     <div className="flex items-center gap-2 px-3 py-2 text-lol-text-dim text-xs">

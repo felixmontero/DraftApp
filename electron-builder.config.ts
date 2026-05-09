@@ -4,6 +4,11 @@ const config: Configuration = {
   appId: 'com.draftapp.lol',
   productName: 'DraftApp',
   copyright: 'Copyright © 2026 Félix Montero',
+  asar: true,
+  electronFuses: {
+    enableEmbeddedAsarIntegrityValidation: false,
+    onlyLoadAppFromAsar: false
+  },
   directories: {
     buildResources: 'build',
     output: 'release'
@@ -13,6 +18,7 @@ const config: Configuration = {
     '!out/**/*.map'
   ],
   win: {
+    signAndEditExecutable: false,
     target: [
       {
         target: 'nsis',

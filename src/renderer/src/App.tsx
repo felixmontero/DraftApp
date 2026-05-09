@@ -12,6 +12,7 @@ export default function App(): React.JSX.Element {
   const [championMap, setChampionMap] = useState<Record<number, string>>({})
   const [recommendations, setRecs] = useState<Recommendation[]>([])
   const [recsLoading, setRecsLoading] = useState(false)
+  const [compactMode, setCompactMode] = useState(false)
 
   useEffect(() => {
     let active = true
@@ -103,6 +104,19 @@ export default function App(): React.JSX.Element {
             </svg>
           </button>
           <button
+            onClick={() => setCompactMode(value => !value)}
+            className={`w-6 h-6 rounded flex items-center justify-center transition-colors ${
+              compactMode
+                ? 'text-lol-gold-light bg-lol-gold/10'
+                : 'text-lol-text-dim hover:text-white hover:bg-lol-surface2'
+            }`}
+            title={compactMode ? 'Vista completa' : 'Vista compacta'}
+          >
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5">
+              <path d={compactMode ? 'M4.5 1H1v3.5M7.5 1H11v3.5M4.5 11H1V7.5M7.5 11H11V7.5' : 'M1 4.5V1h3.5M11 4.5V1H7.5M1 7.5V11h3.5M11 7.5V11H7.5'} strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </button>
+          <button
             onClick={() => window.api.invoke('window:close')}
             className="w-6 h-6 rounded flex items-center justify-center text-lol-text-dim hover:text-white hover:bg-red-700 transition-colors"
             title="Cerrar"
@@ -118,13 +132,16 @@ export default function App(): React.JSX.Element {
 
       <StatusBar connection={connection} draft={draft} />
 
-      <div className="flex flex-row flex-1 overflow-hidden p-3 gap-3">
-        <DraftBoard draft={draft} patch={patch} championMap={championMap} />
+      <div className={`flex flex-row flex-1 overflow-hidden p-3 gap-3 ${compactMode ? 'p-2' : ''}`}>
+        {!compactMode && (
+          <DraftBoard draft={draft} patch={patch} championMap={championMap} />
+        )}
         <RecommendationPanel
           draft={draft}
           patch={patch}
           recommendations={recommendations}
           loading={recsLoading}
+          compact={compactMode}
         />
       </div>
 
