@@ -420,3 +420,122 @@ export async function fetchChampionStats(champKey: string, role: Role, patch: st
 export async function fetchChampionBuild(champKey: string, role: Role, patch: string): Promise<Build | null> {
   return (await fetchChampionData(champKey, role, patch)).build
 }
+
+// ─── Counter data scraping ────────────────────────────────────────────────────
+// Fetches the counters page of an enemy champion and extracts a map:
+//   candidateChampKey → win rate of that candidate AGAINST the enemy
+// Win rate > 0.5 means the candidate beats the enemy in lane/role.
+
+function extractMatchupsFromNextData(html: string): Map<string, number> {
+  const out = new Map<string, number>()
+  const match = html.match(/<script id="__NEXT_DATA__" type="application\/json">([\s\S]*?)<\/script>/)
+  if (!match) return out
+
+  let json: unknown
+  try { json = JSON.parse(match[1]) } catch { return out }
+
+  // Walk JSON tree looking for objects where keys look like champion keys
+  // and values are arrays/objects containing win rates (0.38–0.65)
+  const CHAMP_KEY_RE = /^[A-Z][a-zA-Z']{2,19}$/
+
+  const walk = (v: unknown, depth = 0): void => {
+    if (depth > 14 || v === null || v === undefined) return
+    if (typeof v !== 'object') return
+
+    if (Array.isArray(v)) {
+      v.forEach(item => walk(item, depth + 1))
+      return
+    }
+
+    let foundChampKeys = 0
+    for (const key of Object.keys(v as Record<string, unknown>)) {
+      if (CHAMP_KEY_RE.test(key)) foundChampKeys++
+    }
+
+    // If this object has many champion-like keys, it's likely a matchup map
+    if (foundChampKeys >= 5) {
+      for (const [key, val] of Object.entries(v as Record<string, unknown>)) {
+        if (!CHAMP_KEY_RE.test(key)) continue
+
+        let wr = 0
+        if (Array.isArray(val)) {
+          // Formato [games, wins, winRate] o similar
+          for (const n of val) {
+            if (typeof n === 'number' && n > 0.38 && n < 0.65) { wr = n; break }
+          }
+        } else if (typeof val === 'object' && val !== null) {
+          for (const n of Object.values(val as Record<string, unknown>)) {
+            if (typeof n === 'number' && n > 0.38 && n < 0.65) { wr = n; break }
+          }
+        } else if (typeof val === 'number' && val > 0.38 && val < 0.65) {
+          wr = val
+        }
+
+        if (wr > 0) {
+          // Si wr < 0.5: el rival gana contra el candidato → candidate pierde
+          // Lo que queremos es WR desde perspectiva del candidato.
+          // Lolalytics counters page muestra el WR del rival, así que invertimos.
+          // Pero puede ser al revés (best counters = WR del counter).
+          // Heurística: si median de todos los valores está cerca de 0.5, son WRs normales;
+          // si están sesgados < 0.5, probablemente son WRs del rival (invertir).
+          out.set(key, wr)
+        }
+      }
+
+      // Si la mayoría de WRs extraídas son < 0.50, probablemente son desde la perspectiva
+      // del rival (enemy champ's WR against each candidate). Invertir todos.
+      if (out.size > 0) {
+        const vals = [...out.values()]
+        const median = vals.sort((a, b) => a - b)[Math.floor(vals.length / 2)]
+        if (median < 0.499) {
+          for (const [k, v] of out) out.set(k, 1 - v)
+        }
+        return  // stop walking once we found the matchup map
+      }
+    }
+
+    for (const val of Object.values(v as Record<string, unknown>)) {
+      walk(val, depth + 1)
+    }
+  }
+
+  walk(json)
+  return out
+}
+
+/**
+ * Returns Map<candidateChampKey, winRateAgainstEnemy>.
+ * WR > 0.5 = candidate beats the enemy.
+ * Falls back to empty map if scraping fails.
+ */
+export async function fetchEnemyCounterData(
+  enemyKey: string,
+  role: Role,
+  patch: string
+): Promise<Map<string, number>> {
+  const shortPatch = toShortPatch(patch)
+  const cacheKey = `counters:${enemyKey}:${LANE[role]}:${shortPatch}`
+
+  const cached = cache.get<[string, number][]>(cacheKey)
+  if (cached) return new Map(cached)
+
+  const lane = LANE[role]
+  const urls = [
+    `https://lolalytics.com/lol/${enemyKey.toLowerCase()}/counters/?lane=${lane}`,
+    `https://lolalytics.com/lol/${enemyKey.toLowerCase()}/counters/`,
+  ]
+
+  let matchups = new Map<string, number>()
+
+  for (const url of urls) {
+    const result = await fetchHtml(url)
+    if (!result || !result.html) break
+    if (result.status !== 200) continue
+    matchups = extractMatchupsFromNextData(result.html)
+    if (matchups.size > 0) break
+  }
+
+  console.log(`[Counters] ${enemyKey}/${role}: ${matchups.size} matchups extraídos`)
+  cache.set(cacheKey, [...matchups.entries()])
+  return matchups
+}

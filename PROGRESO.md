@@ -6,9 +6,9 @@
 |------|--------|-------------|
 | Fase 1 — Setup | ✅ Completada | Proyecto inicializado y funcionando |
 | Fase 2 — LCU | ✅ Completada | Conexión con cliente LoL |
-| Fase 3 — Datos | ⬜ Pendiente | Data Dragon + Lolalytics |
-| Fase 4 — Engine | ⬜ Pendiente | Motor de scoring |
-| Fase 5 — Overlay UI | ⬜ Pendiente | UI completa |
+| Fase 3 — Datos | ✅ Completada | Data Dragon + Lolalytics (scraping) |
+| Fase 4 — Engine | ✅ Completada | Motor de scoring dinámico |
+| Fase 5 — Overlay UI | 🚧 En progreso | UI implementada (con mock data parcial) |
 | Fase 6 — Distribución | ⬜ Pendiente | Instalador Windows |
 
 ---
@@ -136,12 +136,43 @@ Los canales de la Fase 2 en adelante están definidos en `src/shared/constants.t
 
 ---
 
-## Próximo paso — Fase 2: Conexión LCU
+## Fase 3 — Datos de campeones ✅
 
-Implementar en `src/main/lcu/`:
+**Fecha:** 15 abril 2026
 
-1. **`connector.ts`** — usar `lcu-connector` para detectar el lockfile y obtener credenciales
-2. **`events.ts`** — suscribirse al WebSocket `/lol-champ-select/v1/session` y parsear el estado del draft
-3. **`index.ts`** (main) — enviar el estado al renderer via `ipcMain` cuando cambie el draft
-4. **`StatusBar.tsx`** — conectar con el IPC real (eliminar mock `'disconnected'`)
-5. **`DraftBoard.tsx`** — renderizar picks/bans reales del draft state
+### Qué se hizo
+
+- **Data Dragon (`datadragon.ts`):** Fetcher de lista de campeones, mapeo de IDs y descarga de iconos de runas.
+- **Lolalytics (`lolalytics.ts`):** Implementado scraper robusto que extrae datos de `__NEXT_DATA__` (JSON embebido) con fallback a HTML scraping con Cheerio.
+- **Caché (`cache.ts`):** Sistema de persistencia con `electron-store` que invalida datos al cambiar de parche.
+- **Protocolo `ddragon://`:** Proxy en el proceso principal para servir imágenes de Riot sin problemas de CORS ni Referer.
+
+---
+
+## Fase 4 — Motor de scoring ✅
+
+**Fecha:** 16 abril 2026
+
+### Qué se hizo
+
+- **Scoring dinámico (`scorer.ts`):** Lógica que ajusta pesos según la fase del draft (early/mid/late).
+- **Análisis de composición (`composition.ts`):** Detecta necesidades del equipo (Frontline, AP/AD balance, Peel).
+- **Recomendaciones (`recommendations.ts`):** Orquestador que cruza datos de LCU, Lolalytics y el Scorer para generar el Top 5.
+- **Fingerprinting:** Sistema para evitar recalcular recomendaciones si el estado del draft no ha cambiado significativamente.
+
+---
+
+## Fase 5 — Overlay UI 🚧
+
+**Fecha:** 9 mayo 2026 (En progreso)
+
+### Qué se hizo
+
+- **Layout principal (`App.tsx`):** Ventana transparente, frameless y siempre visible.
+- **Componentes base:** `StatusBar`, `DraftBoard`, `RecommendationPanel`, `ChampionCard`, `BuildPanel`.
+- **Integración IPC:** Sincronización en tiempo real entre el estado del draft en el main y la UI en el renderer.
+
+### Pendiente
+- [ ] Refinar diseño del `BuildPanel` (actualmente básico).
+- [ ] Posicionamiento automático inteligente según resolución.
+- [ ] Modo "compacto" para el overlay.

@@ -32,6 +32,11 @@ dist
 *.zip
 *.AppImage
 
+# TypeScript build artifacts
+*.tsbuildinfo
+src/**/*.js
+src/**/*.jsx
+
 # Env
 .env
 .env.local

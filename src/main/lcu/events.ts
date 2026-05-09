@@ -53,7 +53,8 @@ export class LcuEvents {
         `${protocol}://${address}:${port}/lol-champ-select/v1/session`,
         {
           auth: { username, password },
-          httpsAgent: lcuAgent
+          httpsAgent: lcuAgent,
+          timeout: 2000
         }
       )
       return parseSession(response.data)
@@ -91,7 +92,6 @@ export class LcuEvents {
     this.ws.on('open', () => {
       console.log('[LCU] WebSocket conectado')
       // Suscripción optimista (puede fallar si WELCOME no ha llegado aún)
-      this.ws?.send(JSON.stringify([WAMP_SUBSCRIBE, CHAMP_SELECT_EVENT]))
     })
 
     this.ws.on('message', (data: WebSocket.RawData) => {

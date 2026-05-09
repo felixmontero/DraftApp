@@ -17,6 +17,17 @@ export default function RecommendationPanel({ draft, patch, recommendations, loa
   const roleLabel    = localPlayer?.assignedPosition?.toUpperCase() ?? null
   const role         = localPlayer?.assignedPosition as Role | undefined
   const patchDisplay = ddPatchToDisplay(patch)
+  const currentAction = draft?.actions.find(action => action.isInProgress)
+  const recommendationIntent = currentAction?.isAllyAction
+    ? currentAction.type
+    : undefined
+  const contextLabel = recommendationIntent === 'ban'
+    ? 'Opciones de ban'
+    : recommendationIntent === 'pick'
+      ? 'Opciones de pick'
+      : currentAction
+        ? 'Turno rival'
+        : 'Recomendaciones'
 
   const [selectedKey,  setSelectedKey]  = useState<string | null>(null)
   const [selectedName, setSelectedName] = useState<string>('')
@@ -26,8 +37,10 @@ export default function RecommendationPanel({ draft, patch, recommendations, loa
   // Refs para evitar closures obsoletas en handleSelect
   const selectedKeyRef = React.useRef<string | null>(null)
   const roleRef = React.useRef<Role | undefined>(undefined)
+  const intentRef = React.useRef<typeof recommendationIntent>(undefined)
   selectedKeyRef.current = selectedKey
   roleRef.current = role
+  intentRef.current = recommendationIntent
 
   // Resetear selección solo cuando comienza un champion select NUEVO (draft pasa de null → no-null)
   // No resetear cuando draft pasa a null — el poller puede enviar null momentáneamente
@@ -52,6 +65,7 @@ export default function RecommendationPanel({ draft, patch, recommendations, loa
     setSelectedKey(key)
     setSelectedName(name)
     setSelectedBuild(null)
+    if (intentRef.current === 'ban') return
     setBuildLoading(true)
     try {
       const build = await window.api.invoke(IPC.GET_BUILD, { champKey: key, role: roleRef.current }) as Build | null
@@ -68,7 +82,7 @@ export default function RecommendationPanel({ draft, patch, recommendations, loa
 
       {/* Header */}
       <div className="flex items-center justify-between px-3 py-1.5 bg-lol-dark/60 border-b border-lol-border shrink-0">
-        <span className="text-lol-gold text-xs font-bold uppercase tracking-wider">Recomendaciones</span>
+        <span className="text-lol-gold text-xs font-bold uppercase tracking-wider">{contextLabel}</span>
         <span className="text-lol-text-dim text-xs">
           {roleLabel ? `${roleLabel} · ` : ''}Parche {patchDisplay}
         </span>
@@ -101,6 +115,7 @@ export default function RecommendationPanel({ draft, patch, recommendations, loa
               <ChampionCard
                 rec={rec}
                 rank={i + 1}
+                intent={recommendationIntent}
                 selected={selectedKey === rec.champion.key}
                 onClick={() => handleSelect(rec.champion.key, rec.champion.name)}
               />

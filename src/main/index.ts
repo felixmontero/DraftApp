@@ -33,28 +33,91 @@ const lcuClient = new LcuClient()
 const lcuEvents = new LcuEvents()
 
 let sessionPoller: ReturnType<typeof setInterval> | null = null
+let hadActiveDraft = false
+let consecutiveEmptySessions = 0
+let dataReady = false
 
 // ─── Recomendaciones ──────────────────────────────────────────────────────────
 
 let computingRecs = false  // semáforo: evita cómputos solapados
 let lastRecsFingerprint = '' // fingerprint para evitar envíos redundantes
 
+let latestDraftForRecs: DraftState | null = null
+let pendingRecompute = false
+
+function draftFingerprint(draft: DraftState | null): string {
+  if (!draft) return 'none'
+  const champs = [...draft.myTeam, ...draft.theirTeam]
+    .map(p => `${p.cellId}:${p.assignedPosition}:${p.championId}`)
+    .join('|')
+  const actions = draft.actions
+    .map(a => `${a.id}:${a.type}:${a.championId}:${a.completed}:${a.isInProgress}`)
+    .join('|')
+  return `${draft.localPlayerCellId}:${draft.phase}:${champs}:${actions}`
+}
+
+function clearRecommendations(): void {
+  latestDraftForRecs = null
+  pendingRecompute = false
+  lastRecsFingerprint = ''
+  mainWindow?.webContents.send(IPC.RECOMMENDATIONS_UPDATE, [])
+}
+
+function emitDraftEnd(): void {
+  if (!hadActiveDraft) return
+  hadActiveDraft = false
+  consecutiveEmptySessions = 0
+  mainWindow?.webContents.send(IPC.DRAFT_UPDATE, null)
+  clearRecommendations()
+}
+
 async function updateRecommendations(draft: DraftState | null): Promise<void> {
-  if (!draft || computingRecs) return
+  latestDraftForRecs = draft
+
+  if (!draft) {
+    clearRecommendations()
+    return
+  }
+
+  if (!dataReady || cachedChampions.length === 0) {
+    pendingRecompute = true
+    return
+  }
+
+  if (computingRecs) {
+    pendingRecompute = true
+    return
+  }
+
   computingRecs = true
   try {
-    const recs = await computeRecommendations(draft, cachedChampions, cachedChampionMap, currentPatch)
-    // Solo enviar si el set de campeones recomendados cambió
-    // (evita re-renders en el renderer que cierran el panel de build)
-    const fingerprint = recs.map(r => `${r.champion.key}:${Math.round(r.score)}`).join(',')
-    if (fingerprint !== lastRecsFingerprint) {
-      lastRecsFingerprint = fingerprint
-      mainWindow?.webContents.send(IPC.RECOMMENDATIONS_UPDATE, recs)
-    }
+    do {
+      pendingRecompute = false
+      const currentDraft = latestDraftForRecs
+      if (!currentDraft) break
+
+      const currentDraftFingerprint = draftFingerprint(currentDraft)
+      const recs = await computeRecommendations(currentDraft, cachedChampions, cachedChampionMap, currentPatch)
+
+      if (currentDraftFingerprint !== draftFingerprint(latestDraftForRecs)) {
+        pendingRecompute = true
+        continue
+      }
+
+      const fingerprint = recs.map(r => `${r.champion.key}:${Math.round(r.score)}`).join(',')
+      if (fingerprint !== lastRecsFingerprint) {
+        lastRecsFingerprint = fingerprint
+        mainWindow?.webContents.send(IPC.RECOMMENDATIONS_UPDATE, recs)
+      }
+    } while (pendingRecompute)
   } catch (err) {
     console.warn('[Recs] Error calculando recomendaciones:', (err as Error).message)
   } finally {
     computingRecs = false
+  }
+
+  if (pendingRecompute && latestDraftForRecs) {
+    void updateRecommendations(latestDraftForRecs)
   }
 }
 
@@ -69,6 +132,7 @@ async function checkForNewPatch(): Promise<void> {
 
   console.log(`[Patch] Nuevo parche detectado: ${currentPatch} → ${latestPatch}`)
   currentPatch = latestPatch
+  dataReady = false
   cache.evictOldPatch(toShortPatch(currentPatch))
 
   ;[cachedChampions, cachedRuneMap] = await Promise.all([
@@ -76,12 +140,21 @@ async function checkForNewPatch(): Promise<void> {
     fetchRuneIconMap(currentPatch)
   ])
   cachedChampionMap = buildIdMap(cachedChampions)
+  dataReady = true
 
   mainWindow?.webContents.send(IPC.PATCH_UPDATE,    currentPatch)
   mainWindow?.webContents.send(IPC.CHAMPIONS_UPDATE, cachedChampionMap)
+  if (latestDraftForRecs) void updateRecommendations(latestDraftForRecs)
 }
 
 // ─── LCU ──────────────────────────────────────────────────────────────────────
+
+function emitDraftUpdate(state: DraftState): void {
+  hadActiveDraft = true
+  consecutiveEmptySessions = 0
+  mainWindow?.webContents.send(IPC.DRAFT_UPDATE, state)
+  void updateRecommendations(state)
+}
 
 function setupLcu(): void {
   lcuClient.onConnect(async (credentials) => {
@@ -91,8 +164,7 @@ function setupLcu(): void {
 
     const session = await lcuEvents.fetchCurrentSession()
     if (session) {
-      mainWindow?.webContents.send(IPC.DRAFT_UPDATE, session)
-      updateRecommendations(session)
+      emitDraftUpdate(session)
     }
 
     if (sessionPoller) clearInterval(sessionPoller)
@@ -102,8 +174,10 @@ function setupLcu(): void {
         const s = await lcuEvents.fetchCurrentSession()
         // Solo enviar si hay sesión activa — el WebSocket se encarga de enviar null cuando termina
         if (s) {
-          mainWindow?.webContents.send(IPC.DRAFT_UPDATE, s)
-          updateRecommendations(s)
+          emitDraftUpdate(s)
+        } else if (hadActiveDraft) {
+          consecutiveEmptySessions += 1
+          if (consecutiveEmptySessions >= 2) emitDraftEnd()
         }
       } catch { /* LCU no disponible temporalmente */ }
     }, 3000)
@@ -113,20 +187,18 @@ function setupLcu(): void {
     lcuConnected = false
     lcuEvents.disconnect()
     mainWindow?.webContents.send(IPC.LCU_DISCONNECTED)
-    mainWindow?.webContents.send(IPC.RECOMMENDATIONS_UPDATE, [])
-    lastRecsFingerprint = ''
+    hadActiveDraft = false
+    consecutiveEmptySessions = 0
+    clearRecommendations()
     if (sessionPoller) { clearInterval(sessionPoller); sessionPoller = null }
   })
 
   lcuEvents.onDraftUpdate((state) => {
-    mainWindow?.webContents.send(IPC.DRAFT_UPDATE, state)
-    updateRecommendations(state)
+    emitDraftUpdate(state)
   })
 
   lcuEvents.onDraftEnd(() => {
-    mainWindow?.webContents.send(IPC.DRAFT_UPDATE, null)
-    mainWindow?.webContents.send(IPC.RECOMMENDATIONS_UPDATE, [])
-    lastRecsFingerprint = ''
+    emitDraftEnd()
   })
 
   lcuClient.start()
@@ -232,11 +304,16 @@ function setupDdragonProtocol(): void {
 
 // ─── IPC handlers ─────────────────────────────────────────────────────────────
 
-ipcMain.handle('window:minimize', () => mainWindow?.minimize())
-ipcMain.handle('window:close',    () => mainWindow?.close())
+ipcMain.handle(IPC.WINDOW_MINIMIZE, () => mainWindow?.minimize())
+ipcMain.handle(IPC.WINDOW_CLOSE,    () => mainWindow?.close())
 
-ipcMain.handle('lcu:getStatus',  () => lcuConnected ? 'connected' : 'disconnected')
-ipcMain.handle('champions:get',  () => cachedChampionMap)
+ipcMain.handle(IPC.LCU_GET_STATUS,  () => lcuConnected ? 'connected' : 'disconnected')
+ipcMain.handle(IPC.CHAMPIONS_GET,  () => cachedChampionMap)
+ipcMain.handle(IPC.APP_GET_SNAPSHOT, () => ({
+  connection: lcuConnected ? 'connected' : 'disconnected',
+  patch: currentPatch,
+  champions: cachedChampionMap
+}))
 
 ipcMain.handle(IPC.GET_BUILD, async (_event, { champKey, role }: { champKey: string; role: Role }) => {
   return await fetchChampionBuild(champKey, role, currentPatch)
@@ -253,7 +330,6 @@ app.whenReady().then(async () => {
 
   setupDdragonProtocol()
   createWindow()
-  setupLcu()
 
   // Parche → evict caché obsoleta → campeones + runas
   currentPatch      = await fetchLatestPatch()
@@ -264,10 +340,12 @@ app.whenReady().then(async () => {
     fetchRuneIconMap(currentPatch)
   ])
   cachedChampionMap = buildIdMap(cachedChampions)
+  dataReady = true
   console.log(`[Init] Parche: ${currentPatch} | Campeones: ${cachedChampions.length} | Runas: ${Object.keys(cachedRuneMap).length}`)
 
   mainWindow?.webContents.send(IPC.PATCH_UPDATE,    currentPatch)
   mainWindow?.webContents.send(IPC.CHAMPIONS_UPDATE, cachedChampionMap)
+  setupLcu()
 
   // Polling de parche cada 30 min
   setInterval(checkForNewPatch, PATCH_POLL_INTERVAL)

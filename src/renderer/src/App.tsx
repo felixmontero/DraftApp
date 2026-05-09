@@ -2,72 +2,80 @@ import React, { useEffect, useState } from 'react'
 import StatusBar from './components/StatusBar'
 import DraftBoard from './components/DraftBoard'
 import RecommendationPanel from './components/RecommendationPanel'
-import { IPC, CURRENT_PATCH } from '@shared/constants'
+import { CURRENT_PATCH, IPC } from '@shared/constants'
 import type { ConnectionStatus, DraftState, Recommendation } from '@shared/types'
 
 export default function App(): React.JSX.Element {
-  const [connection, setConnection]     = useState<ConnectionStatus>('disconnected')
-  const [draft, setDraft]               = useState<DraftState | null>(null)
-  const [patch, setPatch]               = useState<string>(CURRENT_PATCH)
-  const [championMap, setChampionMap]   = useState<Record<number, string>>({})
-  const [recommendations, setRecs]      = useState<Recommendation[]>([])
-  const [recsLoading, setRecsLoading]   = useState(false)
+  const [connection, setConnection] = useState<ConnectionStatus>('disconnected')
+  const [draft, setDraft] = useState<DraftState | null>(null)
+  const [patch, setPatch] = useState<string>(CURRENT_PATCH)
+  const [championMap, setChampionMap] = useState<Record<number, string>>({})
+  const [recommendations, setRecs] = useState<Recommendation[]>([])
+  const [recsLoading, setRecsLoading] = useState(false)
 
   useEffect(() => {
+    let active = true
+
     window.api.invoke('lcu:getStatus').then((status: unknown) => {
-      if (status === 'connected') setConnection('connected')
+      if (active && status === 'connected') setConnection('connected')
     })
 
-    window.api.on(IPC.LCU_CONNECTED, () => setConnection('connected'))
+    const unsubscribers = [
+      window.api.on(IPC.LCU_CONNECTED, () => setConnection('connected')),
 
-    window.api.on(IPC.LCU_DISCONNECTED, () => {
-      setConnection('disconnected')
-      setDraft(null)
-      setRecs([])
-      setRecsLoading(false)
-    })
-
-    window.api.on(IPC.DRAFT_UPDATE, (state: unknown) => {
-      if (state) {
-        setDraft(state as DraftState)
-        setConnection('in_draft')
-        // Solo marcar loading si aún no tenemos recomendaciones —
-        // evita re-renders innecesarios que cierran el panel de build desplegado
-        setRecs(prevRecs => {
-          if (prevRecs.length === 0) setRecsLoading(true)
-          return prevRecs
-        })
-      } else {
+      window.api.on(IPC.LCU_DISCONNECTED, () => {
+        setConnection('disconnected')
         setDraft(null)
-        setConnection('connected')
         setRecs([])
         setRecsLoading(false)
-      }
-    })
+      }),
 
-    window.api.on(IPC.RECOMMENDATIONS_UPDATE, (recs: unknown) => {
-      setRecs(recs as Recommendation[])
-      setRecsLoading(false)
-    })
+      window.api.on(IPC.DRAFT_UPDATE, (state: unknown) => {
+        if (state) {
+          setDraft(state as DraftState)
+          setConnection('in_draft')
+          setRecs(prevRecs => {
+            if (prevRecs.length === 0) setRecsLoading(true)
+            return prevRecs
+          })
+        } else {
+          setDraft(null)
+          setConnection('connected')
+          setRecs([])
+          setRecsLoading(false)
+        }
+      }),
 
-    window.api.on(IPC.PATCH_UPDATE, (p: unknown) => {
-      setPatch(p as string)
-    })
+      window.api.on(IPC.RECOMMENDATIONS_UPDATE, (recs: unknown) => {
+        setRecs(recs as Recommendation[])
+        setRecsLoading(false)
+      }),
 
-    window.api.on(IPC.CHAMPIONS_UPDATE, (map: unknown) => {
-      setChampionMap(map as Record<number, string>)
-    })
+      window.api.on(IPC.PATCH_UPDATE, (p: unknown) => {
+        setPatch(p as string)
+      }),
+
+      window.api.on(IPC.CHAMPIONS_UPDATE, (map: unknown) => {
+        setChampionMap(map as Record<number, string>)
+      })
+    ]
 
     window.api.invoke('champions:get').then((map: unknown) => {
+      if (!active) return
       const m = map as Record<number, string>
       if (Object.keys(m).length > 0) setChampionMap(m)
     })
+
+    return () => {
+      active = false
+      unsubscribers.forEach(unsubscribe => unsubscribe())
+    }
   }, [])
 
   return (
     <div className="flex flex-col h-screen panel-gradient border border-lol-border rounded-lg overflow-hidden select-none shadow-2xl">
 
-      {/* Barra de título */}
+      {/* Barra de titulo */}
       <div
         className="h-9 bg-lol-dark flex items-center justify-between px-3 shrink-0 cursor-move border-b border-lol-border"
         style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}
@@ -106,13 +114,10 @@ export default function App(): React.JSX.Element {
         </div>
       </div>
 
-      {/* Línea decorativa dorada */}
       <div className="gold-line shrink-0" />
 
-      {/* Status */}
-      <StatusBar connection={connection} />
+      <StatusBar connection={connection} draft={draft} />
 
-      {/* Contenido */}
       <div className="flex flex-row flex-1 overflow-hidden p-3 gap-3">
         <DraftBoard draft={draft} patch={patch} championMap={championMap} />
         <RecommendationPanel

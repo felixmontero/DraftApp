@@ -5,6 +5,7 @@ import type { Tier } from '@shared/types'
 interface Props {
   rec: Recommendation
   rank: number
+  intent?: 'pick' | 'ban'
   selected?: boolean
   onClick?: () => void
 }
@@ -29,13 +30,14 @@ function barColor(score: number): string {
   return 'bg-lol-border-bright'
 }
 
-export default function ChampionCard({ rec, rank, selected, onClick }: Props): React.JSX.Element {
+export default function ChampionCard({ rec, rank, intent, selected, onClick }: Props): React.JSX.Element {
   const score = Math.round(rec.score)
   const tier  = rec.breakdown.tierBonus >= 0.9 ? 'S'
               : rec.breakdown.tierBonus >= 0.7 ? 'A'
               : rec.breakdown.tierBonus >= 0.5 ? 'B'
               : rec.breakdown.tierBonus >= 0.3 ? 'C' : 'D'
   const wr = (rec.breakdown.winRate * 100).toFixed(1)
+  const reasons = rec.reasons.length > 0 ? rec.reasons.slice(0, selected ? 3 : 2) : ['Pick consistente']
 
   return (
     <button
@@ -73,6 +75,15 @@ export default function ChampionCard({ rec, rank, selected, onClick }: Props): R
         <div className="flex items-center justify-between mb-0.5">
           <span className="text-white text-xs font-semibold truncate">{rec.champion.name}</span>
           <div className="flex items-center gap-1 ml-1 shrink-0">
+            {intent && (
+              <span className={`text-[10px] font-bold px-1 rounded border leading-4 ${
+                intent === 'ban'
+                  ? 'bg-lol-red-dim text-red-300 border-lol-red/50'
+                  : 'bg-lol-blue-dim/30 text-lol-blue border-lol-blue/40'
+              }`}>
+                {intent === 'ban' ? 'BAN' : 'PICK'}
+              </span>
+            )}
             {/* Tier badge */}
             <span className={`text-[10px] font-bold px-1 rounded border leading-4 ${TIER_STYLE[tier as Tier]}`}>
               {tier}
@@ -89,11 +100,15 @@ export default function ChampionCard({ rec, rank, selected, onClick }: Props): R
           <div className={`h-full rounded-full transition-all ${barColor(score)}`} style={{ width: `${score}%` }} />
         </div>
 
-        {/* Win rate + reason */}
-        <div className="flex items-center justify-between">
-          <p className="text-lol-text-dim text-xs truncate flex-1">
-            {rec.reasons[0] ?? 'Pick consistente'}
-          </p>
+        {/* Win rate + reasons */}
+        <div className="flex items-start justify-between gap-1">
+          <div className="flex flex-wrap gap-x-1 gap-y-0.5 min-w-0">
+            {reasons.map((reason, index) => (
+              <span key={`${reason}-${index}`} className="text-lol-text-dim text-[11px] leading-4 truncate max-w-[150px]">
+                {index > 0 ? '· ' : ''}{reason}
+              </span>
+            ))}
+          </div>
           <span className="text-lol-text-dim text-[10px] ml-1 shrink-0">{wr}% WR</span>
         </div>
       </div>

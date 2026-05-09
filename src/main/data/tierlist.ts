@@ -7,6 +7,7 @@
 
 import type { Tier } from '@shared/types'
 import type { Role } from '@shared/constants'
+import { normalizeChampionKey } from '@shared/championKeys'
 
 interface StaticEntry { tier: Tier; winRate: number }
 
@@ -214,12 +215,103 @@ const TIER_DATA: Record<Role, Record<string, StaticEntry>> = {
   utility: UTILITY,
 }
 
+const NORMALIZED_TIER_DATA = Object.fromEntries(
+  Object.entries(TIER_DATA).map(([role, entries]) => [
+    role,
+    Object.fromEntries(
+      Object.entries(entries).map(([key, entry]) => [normalizeChampionKey(key), entry])
+    ),
+  ])
+) as Record<Role, Record<string, StaticEntry>>
+
 /** Devuelve datos estáticos de tier/winRate para un campeón en un rol, o null si no está en la tabla */
 export function getStaticEntry(champKey: string, role: Role): StaticEntry | null {
-  return TIER_DATA[role]?.[champKey] ?? null
+  return NORMALIZED_TIER_DATA[role]?.[normalizeChampionKey(champKey)] ?? null
 }
 
 /** Devuelve true si tenemos datos estáticos para este campeón/rol */
 export function hasStaticEntry(champKey: string, role: Role): boolean {
-  return champKey in (TIER_DATA[role] ?? {})
+  return normalizeChampionKey(champKey) in (NORMALIZED_TIER_DATA[role] ?? {})
+}
+
+// ─── Counters estáticos ───────────────────────────────────────────────────────
+// Formato: { [campeón]: [lista de campeones a los que gana] }
+// WR estimada contra esos matchups: 0.54–0.58 (ventaja clara)
+
+const COUNTERS: Record<string, string[]> = {
+  // Top
+  Malphite:    ['Yasuo', 'Yone', 'Tryndamere', 'Fiora', 'Jax'],
+  Mordekaiser: ['Fiora', 'Garen', 'Tryndamere', 'Nasus', 'Darius'],
+  Illaoi:      ['Darius', 'Garen', 'Renekton', 'Sett', 'Aatrox'],
+  Gwen:        ['Malphite', 'Sion', 'Ornn', 'Cho', 'Poppy'],
+  Warwick:     ['Nasus', 'DrMundo', 'Garen', 'Yorick', 'Volibear', 'Kindred', 'Karthus', 'Evelynn', 'Briar', 'Viego'],
+  Fiora:       ['Malphite', 'Cho', 'Garen', 'Sion', 'Warwick'],
+  Darius:      ['Gnar', 'Gangplank', 'Jayce', 'Quinn', 'Teemo'],
+  Volibear:    ['Aatrox', 'Darius', 'Irelia', 'Sett', 'Cho'],
+  Shen:        ['Fiora', 'Darius', 'Renekton', 'Gwen', 'Jax'],
+  Jax:         ['Garen', 'Nasus', 'Tryndamere', 'Sion', 'Malphite'],
+  Camille:     ['Garen', 'Sion', 'Nasus', 'DrMundo', 'Malphite'],
+  Poppy:       ['Irelia', 'Tryndamere', 'Yone', 'Yasuo', 'Jax'],
+  Urgot:       ['Fiora', 'Camille', 'Irelia', 'Renekton', 'Akali'],
+  // Mid
+  Malzahar:    ['Yasuo', 'Akali', 'Zed', 'Katarina', 'Sylas'],
+  Vex:         ['Yasuo', 'Yone', 'Ahri', 'Zoe', 'LeBlanc'],
+  AurelionSol: ['Azir', 'Orianna', 'Corki', 'Viktor', 'Ryze'],
+  Lissandra:   ['Akali', 'Zed', 'Sylas', 'Irelia', 'Yasuo'],
+  Ahri:        ['Zed', 'Qiyana', 'Sylas', 'LeBlanc', 'Akali'],
+  Syndra:      ['Zed', 'Fizz', 'Qiyana', 'Akali', 'LeBlanc'],
+  Taliyah:     ['Yasuo', 'Ryze', 'Azir', 'Corki', 'Viktor'],
+  Diana:       ['Yasuo', 'Yone', 'Zoe', 'Lux', 'Lissandra'],
+  Orianna:     ['Zed', 'Fizz', 'Akali', 'LeBlanc', 'Qiyana'],
+  Zed:         ['Lux', 'Lissandra', 'Malzahar', 'Syndra', 'Veigar'],
+  Katarina:    ['Ahri', 'Galio', 'Lissandra', 'Malzahar', 'Vex'],
+  // Jungle
+  Amumu:       ['LeeSin', 'Khazix', 'Rengar', 'Zed', 'MasterYi'],
+  Fiddlesticks:['Hecarim', 'Lillia', 'Shaco', 'Warwick', 'Briar'],
+  Rammus:      ['MasterYi', 'Tryndamere', 'Fiora', 'Jax', 'LeeSin'],
+  Nunu:        ['Hecarim', 'LeeSin', 'Lillia', 'Graves', 'Shyvana'],
+  Nocturne:    ['Karthus', 'Evelynn', 'Lillia', 'Hecarim', 'Viego'],
+  Zac:         ['LeeSin', 'Khazix', 'Rengar', 'Graves', 'Vi'],
+  Skarner:     ['LeeSin', 'Khazix', 'Rengar', 'Shaco', 'Evelynn'],
+  Hecarim:     ['Udyr', 'Warwick', 'Trundle', 'Amumu', 'Sejuani'],
+  // Bot
+  MissFortune: ['Draven', 'Caitlyn', 'Aphelios', 'Jhin', 'Varus'],
+  Jinx:        ['Draven', 'Lucian', 'Kalista', 'Zeri', 'Kaisa'],
+  Kogmaw:      ['Caitlyn', 'Draven', 'Aphelios', 'Lucian', 'Xayah'],
+  Ashe:        ['Draven', 'Caitlyn', 'Lucian', 'Varus', 'Kalista'],
+  Caitlyn:     ['Draven', 'Samira', 'Zeri', 'Kaisa', 'Aphelios'],
+  Sivir:       ['Caitlyn', 'Jhin', 'Ashe', 'Varus', 'Aphelios'],
+  Tristana:    ['Draven', 'Caitlyn', 'Jhin', 'Aphelios', 'Lucian'],
+  Samira:      ['Ashe', 'Caitlyn', 'Jhin', 'MissFortune', 'Jinx'],
+  // Support
+  Maokai:      ['Blitzcrank', 'Thresh', 'Pyke', 'Leona', 'Nautilus'],
+  Soraka:      ['Blitzcrank', 'Leona', 'Nautilus', 'Thresh', 'Pyke'],
+  Blitzcrank:  ['Soraka', 'Sona', 'Janna', 'Lulu', 'Karma'],
+  Lulu:        ['Blitzcrank', 'Leona', 'Pyke', 'Thresh', 'Nautilus'],
+  Leona:       ['Soraka', 'Sona', 'Janna', 'Yuumi', 'Nami'],
+  Nautilus:    ['Soraka', 'Sona', 'Janna', 'Lulu', 'Nami'],
+  Thresh:      ['Soraka', 'Sona', 'Janna', 'Yuumi', 'Lulu'],
+  Janna:       ['Leona', 'Blitzcrank', 'Pyke', 'Nautilus', 'Alistar'],
+  Nami:        ['Leona', 'Blitzcrank', 'Pyke', 'Nautilus', 'Thresh'],
+  Brand:       ['Soraka', 'Sona', 'Janna', 'Yuumi', 'Lulu'],
+  Zyra:        ['Soraka', 'Sona', 'Janna', 'Yuumi', 'Lulu'],
+}
+
+const NORMALIZED_COUNTERS = Object.fromEntries(
+  Object.entries(COUNTERS).map(([key, counters]) => [
+    normalizeChampionKey(key),
+    counters.map(normalizeChampionKey),
+  ])
+) as Record<string, string[]>
+
+/**
+ * Devuelve un win rate estimado del candidato contra el enemigo basado en counters estáticos.
+ * 0.57 si el candidato countera al enemigo, 0.43 si el enemigo le countera, 0.5 si neutro.
+ */
+export function getStaticMatchupWr(candidateKey: string, enemyKey: string): number {
+  const candidate = normalizeChampionKey(candidateKey)
+  const enemy = normalizeChampionKey(enemyKey)
+  if (NORMALIZED_COUNTERS[candidate]?.includes(enemy)) return 0.57
+  if (NORMALIZED_COUNTERS[enemy]?.includes(candidate)) return 0.43
+  return 0.5
 }

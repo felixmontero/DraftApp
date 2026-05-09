@@ -1,5 +1,5 @@
 import React from 'react'
-import type { DraftState, DraftPlayer } from '@shared/types'
+import type { DraftAction, DraftState, DraftPlayer } from '@shared/types'
 
 interface Props {
   draft: DraftState | null
@@ -21,13 +21,19 @@ function championIcon(championId: number): string | null {
   return `ddragon://${championId}.png`
 }
 
-function BanSlot({ championId, side }: { championId: number; side: 'ally' | 'enemy' }): React.JSX.Element {
+function formatTimer(ms: number): string {
+  if (!ms || ms <= 0) return '0s'
+  return `${Math.ceil(ms / 1000)}s`
+}
+
+function BanSlot({ championId, side, active }: { championId: number; side: 'ally' | 'enemy'; active?: boolean }): React.JSX.Element {
   const icon = championIcon(championId)
   const isEmpty = !championId
 
   return (
     <div className={`
       w-10 h-10 rounded border flex items-center justify-center overflow-hidden shrink-0
+      ${active ? 'ring-1 ring-lol-gold shadow-gold' : ''}
       ${side === 'ally'
         ? isEmpty ? 'border-lol-border bg-lol-surface' : 'border-lol-border-bright bg-lol-surface'
         : isEmpty ? 'border-lol-red/30 bg-lol-red-dim/40' : 'border-lol-red/60 bg-lol-red-dim'}
@@ -84,26 +90,35 @@ function PickSlot({ player, side, isLocal, championMap }: { player: DraftPlayer;
 
 export default function DraftBoard({ draft, patch: _patch, championMap }: Props): React.JSX.Element {
   const allyBans = draft
-    ? (draft.actions as any[]).filter(a => a.type === 'ban' && a.isAllyAction).slice(0, 5)
+    ? draft.actions.filter((a: DraftAction) => a.type === 'ban' && a.isAllyAction).slice(0, 5)
     : []
   const enemyBans = draft
-    ? (draft.actions as any[]).filter(a => a.type === 'ban' && !a.isAllyAction).slice(0, 5)
+    ? draft.actions.filter((a: DraftAction) => a.type === 'ban' && !a.isAllyAction).slice(0, 5)
     : []
 
   const phase = draft?.phase ?? 'NONE'
+  const currentAction = draft?.actions.find(action => action.isInProgress)
+  const currentActionLabel = currentAction
+    ? `${currentAction.type === 'ban' ? 'Ban' : 'Pick'} ${currentAction.isAllyAction ? 'aliado' : 'rival'}`
+    : null
   const phaseLabel = phase === 'PLANNING' ? 'Preparación'
     : phase === 'BAN_PICK' ? 'Bans y Picks'
     : phase === 'FINALIZATION' ? 'Finalización'
     : 'Esperando partida'
 
   return (
-    <div className="bg-lol-surface border border-lol-border rounded-md shrink-0 overflow-hidden w-[500px]">
+    <div className="bg-lol-surface border border-lol-border rounded-md shrink-0 overflow-hidden basis-[45%] min-w-[360px] max-w-[500px]">
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-2 bg-lol-dark/60 border-b border-lol-border">
+      <div className="flex items-center justify-between gap-3 px-4 py-2 bg-lol-dark/60 border-b border-lol-border">
         <span className="text-lol-gold text-sm font-bold uppercase tracking-wider">Draft</span>
-        <span className={`text-sm ${draft ? 'text-lol-gold-light' : 'text-lol-text-dim'}`}>
-          {phaseLabel}
-        </span>
+        <div className="flex items-center gap-2 min-w-0">
+          {draft && currentActionLabel && (
+            <span className="text-lol-gold-light text-xs font-semibold truncate">
+              {currentActionLabel} · {formatTimer(draft.timeLeftMs)}
+            </span>
+          )}
+          <span className="text-lol-text-dim text-sm truncate">{phaseLabel}</span>
+        </div>
       </div>
 
       <div className="p-3 space-y-3">
@@ -117,13 +132,23 @@ export default function DraftBoard({ draft, patch: _patch, championMap }: Props)
           <div className="flex items-center gap-1">
             <div className="flex gap-1 flex-1">
               {Array.from({ length: 5 }).map((_, i) => (
-                <BanSlot key={i} side="ally" championId={allyBans[i]?.championId ?? 0} />
+                <BanSlot
+                  key={i}
+                  side="ally"
+                  championId={allyBans[i]?.championId ?? 0}
+                  active={allyBans[i]?.id === currentAction?.id}
+                />
               ))}
             </div>
             <div className="w-px h-8 bg-lol-border shrink-0 mx-0.5" />
             <div className="flex gap-1 flex-1 justify-end">
               {Array.from({ length: 5 }).map((_, i) => (
-                <BanSlot key={i} side="enemy" championId={enemyBans[i]?.championId ?? 0} />
+                <BanSlot
+                  key={i}
+                  side="enemy"
+                  championId={enemyBans[i]?.championId ?? 0}
+                  active={enemyBans[i]?.id === currentAction?.id}
+                />
               ))}
             </div>
           </div>
