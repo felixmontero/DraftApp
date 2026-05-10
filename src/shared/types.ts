@@ -109,6 +109,7 @@ export interface AppState {
 
 export interface OverlaySettings {
   compactMode: boolean
+  alwaysOnTop: boolean
   windowBounds: {
     x?: number
     y?: number

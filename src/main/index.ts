@@ -220,7 +220,7 @@ function createWindow(): void {
     show: false,
     frame: false,
     transparent: true,
-    alwaysOnTop: true,
+    alwaysOnTop: settings.overlay.alwaysOnTop,
     skipTaskbar: false,
     resizable: true,
     webPreferences: {
@@ -330,12 +330,19 @@ function setupDdragonProtocol(): void {
 
 ipcMain.handle(IPC.WINDOW_MINIMIZE, () => mainWindow?.minimize())
 ipcMain.handle(IPC.WINDOW_CLOSE,    () => mainWindow?.close())
+ipcMain.handle(IPC.WINDOW_RESET_BOUNDS, () => {
+  const windowBounds = { width: 940, height: 580 }
+  mainWindow?.setBounds(windowBounds)
+  return updateOverlaySettings({ windowBounds })
+})
 
 ipcMain.handle(IPC.LCU_GET_STATUS,  () => lcuConnected ? 'connected' : 'disconnected')
 ipcMain.handle(IPC.CHAMPIONS_GET,  () => cachedChampionMap)
 ipcMain.handle(IPC.APP_GET_SETTINGS, () => getSettings())
 ipcMain.handle(IPC.APP_SET_OVERLAY_SETTINGS, (_event, settings: unknown) => {
-  return updateOverlaySettings(settings as Parameters<typeof updateOverlaySettings>[0])
+  const updated = updateOverlaySettings(settings as Parameters<typeof updateOverlaySettings>[0])
+  mainWindow?.setAlwaysOnTop(updated.overlay.alwaysOnTop)
+  return updated
 })
 ipcMain.handle(IPC.APP_GET_SNAPSHOT, () => ({
   connection: lcuConnected ? 'connected' : 'disconnected',

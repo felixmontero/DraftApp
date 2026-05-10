@@ -30,6 +30,7 @@ export const IPC = {
   // Renderer -> Main
   WINDOW_MINIMIZE: 'window:minimize',
   WINDOW_CLOSE: 'window:close',
+  WINDOW_RESET_BOUNDS: 'window:resetBounds',
   LCU_GET_STATUS: 'lcu:getStatus',
   CHAMPIONS_GET: 'champions:get',
   APP_GET_SNAPSHOT: 'app:getSnapshot',
@@ -51,6 +52,7 @@ export const IPC_LISTEN_CHANNELS = [
 export const IPC_INVOKE_CHANNELS = [
   IPC.WINDOW_MINIMIZE,
   IPC.WINDOW_CLOSE,
+  IPC.WINDOW_RESET_BOUNDS,
   IPC.LCU_GET_STATUS,
   IPC.CHAMPIONS_GET,
   IPC.APP_GET_SNAPSHOT,

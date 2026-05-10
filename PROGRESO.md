@@ -21,6 +21,7 @@
 - IPC seguro con allowlist en preload.
 - Persistencia local de preferencias del overlay con `electron-store`.
 - Restauracion de modo compacto, posicion y tamano de ventana entre sesiones.
+- Panel de ajustes para modo compacto, siempre visible y restaurar ventana.
 
 ### Integracion LCU
 
@@ -73,7 +74,7 @@
 ## Siguiente Paso Recomendado
 
 1. Probar con champion selects reales y guardar fixtures anonimizados.
-2. Separar configuracion visual del overlay en una pantalla o menu de ajustes.
-3. Preparar instalador Windows completo (`dist:win`) y notas de release interno.
-4. Empezar un dataset pequeno de evaluacion para medir si las recomendaciones realmente aciertan en drafts reales.
-5. Anadir historial local de drafts para revisar recomendaciones despues de la partida.
+2. Preparar instalador Windows completo (`dist:win`) y notas de release interno.
+3. Empezar un dataset pequeno de evaluacion para medir si las recomendaciones realmente aciertan en drafts reales.
+4. Anadir historial local de drafts para revisar recomendaciones despues de la partida.
+5. Anadir pruebas de renderer para estados clave del overlay.

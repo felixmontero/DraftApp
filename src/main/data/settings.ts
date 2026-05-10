@@ -4,6 +4,7 @@ import type { OverlaySettings, UserSettings } from '@shared/types'
 const DEFAULT_SETTINGS: UserSettings = {
   overlay: {
     compactMode: false,
+    alwaysOnTop: true,
     windowBounds: {
       width: 940,
       height: 580
@@ -21,6 +22,7 @@ export function getSettings(): UserSettings {
   return {
     overlay: {
       compactMode: Boolean(overlay.compactMode),
+      alwaysOnTop: overlay.alwaysOnTop !== false,
       windowBounds: {
         ...DEFAULT_SETTINGS.overlay.windowBounds,
         ...overlay.windowBounds
