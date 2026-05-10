@@ -63,7 +63,7 @@ function inferRunePath(runeId: number): number {
   return 8000 // default
 }
 
-interface NextDataResult {
+interface JsonDataResult {
   winRate: number; pickRate: number; banRate: number; tier: Tier
   items: number[]
   primaryPath: number; secondaryPath: number
@@ -71,20 +71,25 @@ interface NextDataResult {
   found: boolean
 }
 
-// ─── Extract from __NEXT_DATA__ JSON (primary method) ─────────────────────────
-function extractFromNextData(html: string): NextDataResult {
-  const empty: NextDataResult = {
+// ─── Extract from JSON script tags (Next.js or Qwik fallback) ────────────────
+export function extractFromJsonScripts(html: string): JsonDataResult {
+  const empty: JsonDataResult = {
     winRate: 0, pickRate: 0, banRate: 0, tier: 'C',
     items: [], primaryPath: 8000, secondaryPath: 8100,
     primaryRunes: [], secondaryRunes: [], shards: [],
     found: false
   }
 
-  const match = html.match(/<script id="__NEXT_DATA__" type="application\/json">([\s\S]*?)<\/script>/)
-  if (!match) return empty
+  // Try Next.js __NEXT_DATA__ first
+  const nextMatch = html.match(/<script id="__NEXT_DATA__" type="application\/json">([\s\S]*?)<\/script>/)
+  // Try Qwik JSON state (harder to parse, but we can search for raw numbers)
+  const qwikMatch = html.match(/<script type="qwik\/json">([\s\S]*?)<\/script>/)
+  
+  const rawJson = nextMatch ? nextMatch[1] : (qwikMatch ? qwikMatch[1] : null)
+  if (!rawJson) return empty
 
   let json: unknown
-  try { json = JSON.parse(match[1]) } catch { return empty }
+  try { json = JSON.parse(rawJson) } catch { return empty }
 
   // ── Recopilamos arrays de números y valores de interés ─────────────────────
   const numArrays: number[][] = []
@@ -93,11 +98,10 @@ function extractFromNextData(html: string): NextDataResult {
   const walk = (v: unknown, key = '', depth = 0): void => {
     if (depth > 12 || v === null || v === undefined) return
     if (typeof v === 'number') {
-      // Win rate como decimal (0.40–0.65) o porcentaje (40–65)
-      const STAT_KEYS = ['wr', 'win_rate', 'winRate', 'win']
+      const STAT_KEYS = ['wr', 'win_rate', 'winRate', 'win', 'avgWr']
       if (!winRate && STAT_KEYS.includes(key)) {
-        if (v > 0.40 && v < 0.65)   winRate = v
-        else if (v > 40 && v < 65)   winRate = v / 100
+        if (v > 0.38 && v < 0.65)   winRate = v
+        else if (v > 38 && v < 65)   winRate = v / 100
       }
       if (!pickRate && (key === 'pr' || key === 'pick_rate' || key === 'pickRate')) {
         if (v > 0 && v < 1)   pickRate = v
@@ -123,7 +127,6 @@ function extractFromNextData(html: string): NextDataResult {
   walk(json)
 
   // ── Extraer items ──────────────────────────────────────────────────────────
-  // Caso 1: array plano de item IDs [3068, 3742, 3110, ...]
   let bestItems: number[] = []
   for (const arr of numArrays) {
     const items = arr.filter(isItemId)
@@ -132,8 +135,6 @@ function extractFromNextData(html: string): NextDataResult {
     }
   }
 
-  // Caso 2: sub-arrays [[itemId, games, wins], [itemId, games, wins], ...]
-  // El primer elemento de cada sub-array es el item ID
   const subArrayItems: number[] = []
   for (const arr of numArrays) {
     if (arr.length >= 2 && arr.length <= 5 && isItemId(arr[0])) {
@@ -162,21 +163,6 @@ function extractFromNextData(html: string): NextDataResult {
   }
 
   const found = winRate > 0 || bestItems.length > 0 || primaryRunes.length > 0
-
-  if (!found) {
-    // Log structure keys for debugging when nothing was found
-    const keys: string[] = []
-    const collectKeys = (o: unknown, prefix = '', d = 0): void => {
-      if (d > 4 || !o || typeof o !== 'object' || Array.isArray(o)) return
-      for (const k of Object.keys(o as object)) {
-        keys.push(`${prefix}${k}`)
-        collectKeys((o as Record<string,unknown>)[k], `${prefix}${k}.`, d + 1)
-      }
-    }
-    collectKeys(json)
-    console.log('[Lolalytics] __NEXT_DATA__ keys:', keys.slice(0, 60).join(', '))
-  }
-
   return { winRate, pickRate, banRate: 0, tier: 'C', items: bestItems,
     primaryPath, secondaryPath, primaryRunes, secondaryRunes, shards, found }
 }
@@ -188,7 +174,7 @@ function pct(text: string): number | null {
 }
 
 // ─── HTML scraping (fallback) ─────────────────────────────────────────────────
-function scrapeHtml(html: string): {
+export function scrapeHtml(html: string): {
   winRate: number; pickRate: number; banRate: number; tier: Tier
   items: number[]; primaryRunes: number[]; secondaryRunes: number[]
   primaryPath: number; secondaryPath: number; shards: number[]
@@ -347,8 +333,8 @@ async function scrapeChampionData(
     return null
   }
 
-  // __NEXT_DATA__ JSON — fuente principal (win rate + items + runas si el SSR los incluye)
-  const nd = extractFromNextData(html)
+  // JSON scripts — fuente principal (win rate + items + runas si el SSR los incluye)
+  const nd = extractFromJsonScripts(html)
 
   // HTML scraping — fallback para win rate y tier (img tags de íconos de rango)
   const scraped = scrapeHtml(html)
@@ -426,13 +412,16 @@ export async function fetchChampionBuild(champKey: string, role: Role, patch: st
 //   candidateChampKey → win rate of that candidate AGAINST the enemy
 // Win rate > 0.5 means the candidate beats the enemy in lane/role.
 
-function extractMatchupsFromNextData(html: string): Map<string, number> {
+function extractMatchupsFromJsonScripts(html: string): Map<string, number> {
   const out = new Map<string, number>()
-  const match = html.match(/<script id="__NEXT_DATA__" type="application\/json">([\s\S]*?)<\/script>/)
-  if (!match) return out
+  const nextMatch = html.match(/<script id="__NEXT_DATA__" type="application\/json">([\s\S]*?)<\/script>/)
+  const qwikMatch = html.match(/<script type="qwik\/json">([\s\S]*?)<\/script>/)
+  
+  const rawJson = nextMatch ? nextMatch[1] : (qwikMatch ? qwikMatch[1] : null)
+  if (!rawJson) return out
 
   let json: unknown
-  try { json = JSON.parse(match[1]) } catch { return out }
+  try { json = JSON.parse(rawJson) } catch { return out }
 
   // Walk JSON tree looking for objects where keys look like champion keys
   // and values are arrays/objects containing win rates (0.38–0.65)
@@ -503,6 +492,50 @@ function extractMatchupsFromNextData(html: string): Map<string, number> {
   return out
 }
 
+// ─── Counter data HTML scraping (fallback) ───────────────────────────────────
+function scrapeCountersHtml(html: string, enemyKey: string): Map<string, number> {
+  const out = new Map<string, number>()
+  const $ = cheerio.load(html)
+  const enemyLower = enemyKey.toLowerCase()
+
+  $('a').each((_, el) => {
+    const href = $(el).attr('href') || ''
+    // Buscar links tipo /lol/zed/vs/Akali/build/ o /lol/zed/vs/akali/
+    const m = href.match(new RegExp(`\\/lol\\/${enemyLower}\\/vs\\/([a-zA-Z']+)\\/`, 'i'))
+    if (m) {
+      const candidateKey = m[1]
+      // Buscar un porcentaje en el texto del contenedor más cercano
+      // Evitamos el header buscando el ancestro más pequeño que tenga un '%'
+      let current = $(el).parent()
+      let foundWr = 0
+      for (let i = 0; i < 5; i++) {
+        const text = current.text()
+        const wrMatch = text.match(/([\d.]+)\s*%/)
+        if (wrMatch) {
+          foundWr = parseFloat(wrMatch[1]) / 100
+          break
+        }
+        current = current.parent()
+      }
+
+      if (foundWr > 0.30 && foundWr < 0.70) {
+        out.set(candidateKey, foundWr)
+      }
+    }
+  })
+
+  // Heurística de inversión (mismo principio que en JSON)
+  if (out.size > 0) {
+    const vals = [...out.values()]
+    const median = vals.sort((a, b) => a - b)[Math.floor(vals.length / 2)]
+    if (median < 0.499) {
+      for (const [k, v] of out) out.set(k, 1 - v)
+    }
+  }
+
+  return out
+}
+
 /**
  * Returns Map<candidateChampKey, winRateAgainstEnemy>.
  * WR > 0.5 = candidate beats the enemy.
@@ -531,7 +564,10 @@ export async function fetchEnemyCounterData(
     const result = await fetchHtml(url)
     if (!result || !result.html) break
     if (result.status !== 200) continue
-    matchups = extractMatchupsFromNextData(result.html)
+    matchups = extractMatchupsFromJsonScripts(result.html)
+    if (matchups.size === 0) {
+      matchups = scrapeCountersHtml(result.html, enemyKey)
+    }
     if (matchups.size > 0) break
   }
 

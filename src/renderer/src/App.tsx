@@ -1,11 +1,12 @@
-import React, { useEffect, useState } from 'react'
-import StatusBar from './components/StatusBar'
+import React, { useEffect, useRef, useState } from 'react'
 import DraftBoard from './components/DraftBoard'
 import RecommendationPanel from './components/RecommendationPanel'
+import HistoryPanel from './components/HistoryPanel'
 import SettingsPanel from './components/SettingsPanel'
-import NavigationRail from './components/NavigationRail'
-import { CURRENT_PATCH, IPC } from '@shared/constants'
+import { CURRENT_PATCH, IPC, ddPatchToDisplay } from '@shared/constants'
 import type { ConnectionStatus, DraftState, FocusedChampion, Recommendation, UserSettings } from '@shared/types'
+
+type TabView = 'draft' | 'recommendations' | 'history'
 
 export default function App(): React.JSX.Element {
   const [connection, setConnection] = useState<ConnectionStatus>('disconnected')
@@ -18,6 +19,8 @@ export default function App(): React.JSX.Element {
   const [settings, setSettings] = useState<UserSettings | null>(null)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [focusedChampion, setFocusedChampion] = useState<FocusedChampion | null>(null)
+  const [activeView, setActiveView] = useState<TabView>('recommendations')
+  const hadDraftRef = useRef(false)
 
   useEffect(() => {
     let active = true
@@ -37,6 +40,7 @@ export default function App(): React.JSX.Element {
       window.api.on(IPC.LCU_CONNECTED, () => setConnection('connected')),
 
       window.api.on(IPC.LCU_DISCONNECTED, () => {
+        hadDraftRef.current = false
         setConnection('disconnected')
         setDraft(null)
         setFocusedChampion(null)
@@ -46,6 +50,10 @@ export default function App(): React.JSX.Element {
 
       window.api.on(IPC.DRAFT_UPDATE, (state: unknown) => {
         if (state) {
+          if (!hadDraftRef.current) {
+            setActiveView('recommendations')
+          }
+          hadDraftRef.current = true
           setDraft(state as DraftState)
           setConnection('in_draft')
           setRecs(prevRecs => {
@@ -53,6 +61,7 @@ export default function App(): React.JSX.Element {
             return prevRecs
           })
         } else {
+          hadDraftRef.current = false
           setDraft(null)
           setFocusedChampion(null)
           setConnection('connected')
@@ -106,35 +115,37 @@ export default function App(): React.JSX.Element {
     setSettings(updated)
   }
 
-  return (
-    <div className="relative flex flex-col h-screen panel-gradient border border-lol-border rounded-lg overflow-hidden select-none shadow-panel">
+  const patchDisplay = ddPatchToDisplay(patch)
 
-      {/* Barra de titulo */}
+  const connectionMeta = connection === 'in_draft'
+    ? { label: 'Draft activo', color: 'bg-lol-green' }
+    : connection === 'connected'
+      ? { label: 'Conectado', color: 'bg-lol-blue' }
+      : { label: 'Sin conexion', color: 'bg-lol-text-dim' }
+
+  return (
+    <div className="relative flex flex-col h-screen panel-gradient border border-lol-border rounded-md overflow-hidden select-none">
+
+      {/* Title bar */}
       <div
-        className="h-8 bg-lol-dark/90 flex items-center justify-between px-3 shrink-0 cursor-move border-b border-lol-border"
+        className="h-8 flex items-center justify-between px-3 shrink-0 cursor-move border-b border-lol-border/60"
         style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}
       >
-        <div className="flex items-center gap-2">
-          <div className="w-4 h-4 rounded border border-lol-gold/40 flex items-center justify-center">
-            <div className="w-1.5 h-1.5 rounded-sm bg-lol-gold" />
-          </div>
-          <div className="flex items-baseline gap-2">
-            <span className="text-lol-gold-light text-[11px] font-bold tracking-[0.16em] uppercase">
-              DraftApp
-            </span>
-            <span className="hidden text-[10px] font-semibold uppercase tracking-[0.18em] text-lol-text-dim sm:inline">
-              Draft analyst
-            </span>
-          </div>
-        </div>
+        <span className="text-[11px] font-bold tracking-wider text-white/90 uppercase">
+          DraftApp
+        </span>
 
         <div
-          className="flex items-center gap-1"
+          className="flex items-center gap-2"
           style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
         >
+          <div className="hidden items-center gap-1.5 text-[10px] text-lol-text-dim sm:flex mr-1">
+            <span className={`h-1.5 w-1.5 rounded-full ${connectionMeta.color}`} />
+            <span>Parche {patchDisplay}</span>
+          </div>
           <button
             onClick={() => window.api.invoke('window:minimize')}
-            className="w-6 h-6 rounded flex items-center justify-center text-lol-text-dim hover:text-white hover:bg-lol-surface2 transition-colors"
+            className="w-6 h-6 rounded flex items-center justify-center text-lol-text-dim hover:text-white hover:bg-lol-surface2/60 transition-colors"
             title="Minimizar"
           >
             <svg width="10" height="2" viewBox="0 0 10 2" fill="currentColor">
@@ -145,8 +156,8 @@ export default function App(): React.JSX.Element {
             onClick={toggleCompactMode}
             className={`w-6 h-6 rounded flex items-center justify-center transition-colors ${
               compactMode
-                ? 'text-lol-gold-light bg-lol-gold/10'
-                : 'text-lol-text-dim hover:text-white hover:bg-lol-surface2'
+                ? 'text-white bg-lol-surface2/60'
+                : 'text-lol-text-dim hover:text-white hover:bg-lol-surface2/60'
             }`}
             title={compactMode ? 'Vista completa' : 'Vista compacta'}
           >
@@ -158,8 +169,8 @@ export default function App(): React.JSX.Element {
             onClick={() => setSettingsOpen(value => !value)}
             className={`w-6 h-6 rounded flex items-center justify-center transition-colors ${
               settingsOpen
-                ? 'text-lol-gold-light bg-lol-gold/10'
-                : 'text-lol-text-dim hover:text-white hover:bg-lol-surface2'
+                ? 'text-white bg-lol-surface2/60'
+                : 'text-lol-text-dim hover:text-white hover:bg-lol-surface2/60'
             }`}
             title="Ajustes"
           >
@@ -170,7 +181,7 @@ export default function App(): React.JSX.Element {
           </button>
           <button
             onClick={() => window.api.invoke('window:close')}
-            className="w-6 h-6 rounded flex items-center justify-center text-lol-text-dim hover:text-white hover:bg-red-700 transition-colors"
+            className="w-6 h-6 rounded flex items-center justify-center text-lol-text-dim hover:text-white hover:bg-red-700/80 transition-colors"
             title="Cerrar"
           >
             <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
@@ -180,7 +191,41 @@ export default function App(): React.JSX.Element {
         </div>
       </div>
 
-      <div className="gold-line shrink-0" />
+      {/* Tabs - replace NavigationRail */}
+      {!compactMode && (
+        <div className="flex shrink-0 border-b border-lol-border/60">
+          <button
+            onClick={() => setActiveView('draft')}
+            className={`flex-1 py-2 text-[11px] font-semibold uppercase tracking-wide transition-colors ${
+              activeView === 'draft'
+                ? 'text-white border-b-2 border-lol-gold'
+                : 'text-lol-text-dim hover:text-lol-text'
+            }`}
+          >
+            Draft
+          </button>
+          <button
+            onClick={() => setActiveView('recommendations')}
+            className={`flex-1 py-2 text-[11px] font-semibold uppercase tracking-wide transition-colors ${
+              activeView === 'recommendations'
+                ? 'text-white border-b-2 border-lol-gold'
+                : 'text-lol-text-dim hover:text-lol-text'
+            }`}
+          >
+            Picks
+          </button>
+          <button
+            onClick={() => setActiveView('history')}
+            className={`flex-1 py-2 text-[11px] font-semibold uppercase tracking-wide transition-colors ${
+              activeView === 'history'
+                ? 'text-white border-b-2 border-lol-gold'
+                : 'text-lol-text-dim hover:text-lol-text'
+            }`}
+          >
+            Historial
+          </button>
+        </div>
+      )}
 
       {settingsOpen && (
         <SettingsPanel
@@ -193,11 +238,9 @@ export default function App(): React.JSX.Element {
         />
       )}
 
-      <StatusBar connection={connection} draft={draft} />
-
-      <div className={`flex flex-row flex-1 overflow-hidden ${compactMode ? 'p-2 gap-2' : 'p-3 gap-3'}`}>
-        {!compactMode && <NavigationRail inDraft={draft !== null} compactMode={compactMode} />}
-        {!compactMode && (
+      {/* Content */}
+      <div className="flex-1 overflow-hidden">
+        {!compactMode && activeView === 'draft' && (
           <DraftBoard
             draft={draft}
             patch={patch}
@@ -205,14 +248,19 @@ export default function App(): React.JSX.Element {
             onFocusChampion={setFocusedChampion}
           />
         )}
-        <RecommendationPanel
-          draft={draft}
-          patch={patch}
-          recommendations={recommendations}
-          loading={recsLoading}
-          compact={compactMode}
-          focusedChampion={focusedChampion}
-        />
+        {!compactMode && activeView === 'history' && (
+          <HistoryPanel />
+        )}
+        {(compactMode || activeView === 'recommendations') && (
+          <RecommendationPanel
+            draft={draft}
+            patch={patch}
+            recommendations={recommendations}
+            loading={recsLoading}
+            compact={compactMode}
+            focusedChampion={focusedChampion}
+          />
+        )}
       </div>
 
     </div>

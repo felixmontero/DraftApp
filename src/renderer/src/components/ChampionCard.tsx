@@ -10,11 +10,11 @@ interface Props {
 }
 
 const TIER_STYLE: Record<Tier, string> = {
-  S: 'border-lol-gold/45 bg-lol-gold/10 text-lol-gold-light',
-  A: 'border-lol-blue/35 bg-lol-blue-dim/30 text-lol-blue',
-  B: 'border-teal-500/30 bg-teal-500/10 text-teal-300',
-  C: 'border-lol-border bg-lol-surface text-lol-text',
-  D: 'border-lol-red/35 bg-lol-red-dim/40 text-lol-red'
+  S: 'border-lol-gold/35 bg-lol-gold/8 text-lol-gold-light',
+  A: 'border-lol-blue/25 bg-lol-blue-dim/20 text-lol-blue',
+  B: 'border-teal-500/25 bg-teal-500/8 text-teal-300',
+  C: 'border-lol-border bg-lol-surface text-lol-text-dim',
+  D: 'border-lol-red/25 bg-lol-red-dim/30 text-lol-red'
 }
 
 function tierFromBonus(tierBonus: number): Tier {
@@ -31,23 +31,23 @@ export default function ChampionCard({ rec, rank, intent, selected, onClick }: P
   const wr = (rec.breakdown.winRate * 100).toFixed(1)
   const reasons = rec.reasons.length > 0 ? rec.reasons.slice(0, selected ? 3 : 2) : ['Pick consistente']
   const intentColor = intent === 'ban'
-    ? 'border-lol-red/35 bg-lol-red-dim/40 text-lol-red'
-    : 'border-lol-blue/35 bg-lol-blue-dim/30 text-lol-blue'
+    ? 'border-lol-red/25 bg-lol-red-dim/30 text-lol-red'
+    : 'border-lol-blue/25 bg-lol-blue-dim/20 text-lol-blue'
 
   return (
     <button
       className={`
-        app-card app-card-hover w-full min-h-[58px] px-3 py-2 text-left
+        app-card app-card-hover w-full min-h-[52px] px-2.5 py-2 text-left
         grid grid-cols-[32px_40px_minmax(0,1fr)_auto] items-center gap-2
-        ${selected ? 'border-lol-gold/55 bg-lol-gold/10 shadow-gold' : ''}
+        ${selected ? 'border-lol-border-bright bg-lol-surface2/30' : ''}
       `}
       onClick={onClick}
     >
-      <span className={`text-center text-lg font-bold leading-none ${rank === 1 ? 'text-lol-gold-light' : 'text-lol-text-dim'}`}>
+      <span className={`text-center text-sm font-bold leading-none ${rank === 1 ? 'text-white' : 'text-lol-text-dim'}`}>
         {rank > 0 ? String(rank).padStart(2, '0') : ''}
       </span>
 
-      <div className={`h-10 w-10 rounded-md border bg-lol-dark overflow-hidden ${selected ? 'border-lol-gold/55' : 'border-lol-border'}`}>
+      <div className={`h-10 w-10 rounded border bg-lol-dark overflow-hidden ${selected ? 'border-lol-border-bright' : 'border-lol-border/70'}`}>
         {rec.champion.iconUrl ? (
           <img src={rec.champion.iconUrl} alt={rec.champion.name} className="h-full w-full object-cover" />
         ) : (
@@ -58,7 +58,7 @@ export default function ChampionCard({ rec, rank, intent, selected, onClick }: P
       </div>
 
       <div className="min-w-0">
-        <div className="mb-1 flex items-center gap-1.5">
+        <div className="mb-0.5 flex items-center gap-1.5">
           <span className="truncate text-xs font-semibold text-white">{rec.champion.name}</span>
           {intent && (
             <span className={`rounded border px-1.5 py-0.5 text-[9px] font-bold leading-none ${intentColor}`}>
@@ -72,7 +72,7 @@ export default function ChampionCard({ rec, rank, intent, selected, onClick }: P
         <div className="flex flex-wrap gap-x-1.5 gap-y-0.5">
           {reasons.map((reason, index) => (
             <span key={`${reason}-${index}`} className="max-w-[150px] truncate text-[10px] leading-4 text-lol-text-dim">
-              {index > 0 ? '- ' : ''}{reason}
+              {index > 0 ? '· ' : ''}{reason}
             </span>
           ))}
         </div>
@@ -85,7 +85,7 @@ export default function ChampionCard({ rec, rank, intent, selected, onClick }: P
         </div>
         <div>
           <div className="text-[9px] uppercase text-lol-text-dim">Score</div>
-          <div className="text-xs font-bold text-lol-gold-light">{score}</div>
+          <div className="text-xs font-bold text-white">{score}</div>
         </div>
       </div>
     </button>

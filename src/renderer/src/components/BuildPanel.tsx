@@ -21,13 +21,13 @@ function ItemSlot({ itemId, compact = false }: { itemId: number; compact?: boole
   const dim = compact ? 'h-7 w-7' : 'h-8 w-8'
   if (!itemId) {
     return (
-      <div className={`${dim} rounded-md border border-lol-border bg-lol-dark flex items-center justify-center shrink-0`}>
-        <div className="h-1.5 w-1.5 rounded-full bg-lol-border" />
+      <div className={`${dim} rounded border border-lol-border/60 bg-lol-dark flex items-center justify-center shrink-0`}>
+        <div className="h-1.5 w-1.5 rounded-full bg-lol-border/60" />
       </div>
     )
   }
   return (
-    <div className={`${dim} rounded-md border border-lol-border-bright/60 bg-lol-dark overflow-hidden shrink-0`}>
+    <div className={`${dim} rounded border border-lol-border-bright/50 bg-lol-dark overflow-hidden shrink-0`}>
       <img
         src={`ddragon://item/${itemId}`}
         alt={String(itemId)}
@@ -40,9 +40,9 @@ function ItemSlot({ itemId, compact = false }: { itemId: number; compact?: boole
 
 function RuneIcon({ runeId, compact = false }: { runeId: number; compact?: boolean }): React.JSX.Element {
   const dim = compact ? 'h-6 w-6' : 'h-7 w-7'
-  if (!runeId) return <div className={`${dim} rounded-full border border-lol-border bg-lol-dark shrink-0`} />
+  if (!runeId) return <div className={`${dim} rounded-full border border-lol-border/60 bg-lol-dark shrink-0`} />
   return (
-    <div className={`${dim} rounded-full border border-lol-border bg-lol-dark overflow-hidden shrink-0 flex items-center justify-center`}>
+    <div className={`${dim} rounded-full border border-lol-border/60 bg-lol-dark overflow-hidden shrink-0 flex items-center justify-center`}>
       <img
         src={`ddragon://rune/${runeId}`}
         alt={String(runeId)}
@@ -65,8 +65,8 @@ export default function BuildPanel({ build, championName, compact = false }: Pro
     return (
       <div className="app-card mt-1 p-2">
         <div className="mb-1.5 flex items-center justify-between gap-2">
-          <span className="truncate text-[10px] font-bold uppercase tracking-wider text-lol-gold-light">
-            Runas - {championName}
+          <span className="truncate text-[10px] font-bold uppercase text-lol-text">
+            Runas · {championName}
           </span>
           <span className={`shrink-0 text-[10px] font-semibold ${primaryColor}`}>{primaryName}</span>
         </div>
@@ -74,7 +74,7 @@ export default function BuildPanel({ build, championName, compact = false }: Pro
           {(runes.primaryRunes.length > 0 ? runes.primaryRunes : [0, 0, 0, 0]).map((id, i) => (
             <RuneIcon key={`p-${i}`} runeId={id} compact />
           ))}
-          <div className="h-5 w-px shrink-0 bg-lol-border" />
+          <div className="h-5 w-px shrink-0 bg-lol-border/60" />
           {(runes.secondaryRunes.length > 0 ? runes.secondaryRunes : [0, 0]).map((id, i) => (
             <RuneIcon key={`s-${i}`} runeId={id} compact />
           ))}
@@ -86,20 +86,20 @@ export default function BuildPanel({ build, championName, compact = false }: Pro
   return (
     <div className="app-card mt-1 p-3">
       <div className="mb-3 flex items-center justify-between gap-2">
-        <span className="truncate text-[11px] font-bold uppercase tracking-wider text-lol-gold-light">Build - {championName}</span>
+        <span className="truncate text-[11px] font-bold uppercase text-lol-text">Build · {championName}</span>
         <span className="text-[10px] text-lol-text-dim">Lolalytics</span>
       </div>
 
       <div className="mb-3">
-        <p className="mb-1.5 text-[10px] font-bold uppercase tracking-wider text-lol-text-dim">Items</p>
+        <p className="mb-1.5 text-[10px] font-bold uppercase text-lol-text-dim">Items</p>
         <div className="flex gap-1.5 flex-wrap">
           {itemSlots.map((id, i) => <ItemSlot key={i} itemId={id} />)}
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-3 border-t border-lol-border pt-3">
+      <div className="grid grid-cols-2 gap-3 border-t border-lol-border/60 pt-3">
         <div className="min-w-0">
-          <p className={`mb-1.5 text-[10px] font-bold uppercase tracking-wider ${primaryColor}`}>{primaryName}</p>
+          <p className={`mb-1.5 text-[10px] font-bold uppercase ${primaryColor}`}>{primaryName}</p>
           <div className="flex gap-1.5 flex-wrap">
             {(runes.primaryRunes.length > 0 ? runes.primaryRunes : [0, 0, 0, 0]).map((id, i) => (
               <RuneIcon key={i} runeId={id} />
@@ -107,7 +107,7 @@ export default function BuildPanel({ build, championName, compact = false }: Pro
           </div>
         </div>
         <div className="min-w-0">
-          <p className={`mb-1.5 text-[10px] font-bold uppercase tracking-wider ${secondaryColor}`}>{secondaryName}</p>
+          <p className={`mb-1.5 text-[10px] font-bold uppercase ${secondaryColor}`}>{secondaryName}</p>
           <div className="flex gap-1.5 flex-wrap">
             {(runes.secondaryRunes.length > 0 ? runes.secondaryRunes : [0, 0]).map((id, i) => (
               <RuneIcon key={i} runeId={id} />

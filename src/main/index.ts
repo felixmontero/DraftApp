@@ -15,8 +15,9 @@ import { fetchLatestPatch, fetchChampionList, buildIdMap, fetchRuneIconMap } fro
 import { fetchChampionBuild, toShortPatch } from './data/lolalytics'
 import { cache } from './data/cache'
 import { getSettings, updateOverlaySettings } from './data/settings'
+import { saveDraftToHistory, getHistory, deleteHistoryEntry, clearHistory } from './data/history'
 import { computeRecommendations } from './engine/recommendations'
-import type { DraftState } from '@shared/types'
+import type { DraftState, Recommendation } from '@shared/types'
 import type { ChampionEntry } from '@shared/types'
 import type { Role } from '@shared/constants'
 
@@ -44,6 +45,7 @@ let computingRecs = false  // semáforo: evita cómputos solapados
 let lastRecsFingerprint = '' // fingerprint para evitar envíos redundantes
 
 let latestDraftForRecs: DraftState | null = null
+let latestRecommendations: Recommendation[] = []
 let pendingRecompute = false
 
 function draftFingerprint(draft: DraftState | null): string {
@@ -59,6 +61,7 @@ function draftFingerprint(draft: DraftState | null): string {
 
 function clearRecommendations(): void {
   latestDraftForRecs = null
+  latestRecommendations = []
   pendingRecompute = false
   lastRecsFingerprint = ''
   mainWindow?.webContents.send(IPC.RECOMMENDATIONS_UPDATE, [])
@@ -66,6 +69,18 @@ function clearRecommendations(): void {
 
 function emitDraftEnd(): void {
   if (!hadActiveDraft) return
+
+  // Guardar en el historial antes de limpiar
+  if (latestDraftForRecs) {
+    saveDraftToHistory({
+      id: `draft-${Date.now()}`,
+      timestamp: Date.now(),
+      patch: currentPatch,
+      draft: latestDraftForRecs,
+      recommendations: latestRecommendations
+    })
+  }
+
   hadActiveDraft = false
   consecutiveEmptySessions = 0
   mainWindow?.webContents.send(IPC.DRAFT_UPDATE, null)
@@ -105,6 +120,7 @@ async function updateRecommendations(draft: DraftState | null): Promise<void> {
         continue
       }
 
+      latestRecommendations = recs
       const fingerprint = recs.map(r => `${r.champion.key}:${Math.round(r.score)}`).join(',')
       if (fingerprint !== lastRecsFingerprint) {
         lastRecsFingerprint = fingerprint
@@ -331,7 +347,7 @@ function setupDdragonProtocol(): void {
 ipcMain.handle(IPC.WINDOW_MINIMIZE, () => mainWindow?.minimize())
 ipcMain.handle(IPC.WINDOW_CLOSE,    () => mainWindow?.close())
 ipcMain.handle(IPC.WINDOW_RESET_BOUNDS, () => {
-  const windowBounds = { width: 940, height: 580 }
+  const windowBounds = { width: 390, height: 540 }
   mainWindow?.setBounds(windowBounds)
   return updateOverlaySettings({ windowBounds })
 })
@@ -353,6 +369,10 @@ ipcMain.handle(IPC.APP_GET_SNAPSHOT, () => ({
 ipcMain.handle(IPC.GET_BUILD, async (_event, { champKey, role }: { champKey: string; role: Role }) => {
   return await fetchChampionBuild(champKey, role, currentPatch)
 })
+
+ipcMain.handle(IPC.HISTORY_GET,    () => getHistory())
+ipcMain.handle(IPC.HISTORY_DELETE, (_event, id: string) => deleteHistoryEntry(id))
+ipcMain.handle(IPC.HISTORY_CLEAR,  () => clearHistory())
 
 // ─── Init ─────────────────────────────────────────────────────────────────────
 

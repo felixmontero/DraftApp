@@ -32,17 +32,17 @@ function BanSlot({ championId, side, active }: { championId: number; side: 'ally
   const icon = championIcon(championId)
   const isEmpty = !championId
   const sideClass = side === 'ally'
-    ? 'border-lol-blue/30 bg-lol-blue-dim/15'
-    : 'border-lol-red/35 bg-lol-red-dim/35'
+    ? 'border-lol-blue/25 bg-lol-blue-dim/10'
+    : 'border-lol-red/25 bg-lol-red-dim/25'
 
   return (
     <div className={`
-      h-8 w-8 rounded-md border flex items-center justify-center overflow-hidden shrink-0
-      ${active ? 'border-lol-gold/60 ring-1 ring-lol-gold/40' : sideClass}
+      h-8 w-8 rounded border flex items-center justify-center overflow-hidden shrink-0
+      ${active ? 'border-lol-gold/50 ring-1 ring-lol-gold/30' : sideClass}
     `}>
       {icon
-        ? <img src={icon} className="w-full h-full object-cover grayscale opacity-75" alt="" />
-        : <div className={`h-px w-3 rounded ${isEmpty ? 'bg-lol-text-dim/35' : 'bg-lol-text-dim'}`} />
+        ? <img src={icon} className="w-full h-full object-cover grayscale opacity-70" alt="" />
+        : <div className={`h-px w-3 rounded ${isEmpty ? 'bg-lol-text-dim/30' : 'bg-lol-text-dim'}`} />
       }
     </div>
   )
@@ -85,13 +85,13 @@ function PickSlot({
         app-card app-card-hover h-10 w-full border-l-2 px-2 text-left
         flex items-center gap-2
         ${side === 'ally' ? 'team-ally' : 'team-enemy flex-row-reverse'}
-        ${isLocal ? 'bg-lol-gold/5' : ''}
+        ${isLocal ? 'bg-lol-surface2/20' : ''}
         ${clickable ? 'cursor-pointer' : 'cursor-default'}
       `}
     >
       <div className={`
         h-7 w-7 rounded border overflow-hidden flex items-center justify-center shrink-0 bg-lol-dark
-        ${side === 'ally' ? 'border-lol-blue/35' : 'border-lol-red/35'}
+        ${side === 'ally' ? 'border-lol-blue/30' : 'border-lol-red/30'}
       `}>
         {icon
           ? <img src={icon} className="w-full h-full object-cover" alt={champName ?? ''} />
@@ -102,12 +102,12 @@ function PickSlot({
       </div>
       <span className="w-8 shrink-0 text-[10px] font-bold text-lol-text-dim">{roleLabel}</span>
       <span className={`min-w-0 flex-1 truncate text-xs font-semibold ${
-        isLocal ? 'text-lol-gold-light' :
+        isLocal ? 'text-white' :
         side === 'ally' ? 'text-lol-text' : 'text-lol-text-dim'
       }`}>
         {champName ?? 'Pendiente'}
       </span>
-      {isLocal && <span className="shrink-0 text-[10px] font-bold text-lol-gold">TU</span>}
+      {isLocal && <span className="shrink-0 text-[10px] font-bold text-lol-text-dim uppercase">Tu</span>}
       {!isLocal && clickable && <span className="shrink-0 text-[10px] font-bold uppercase text-lol-text-dim">Build</span>}
     </button>
   )
@@ -132,18 +132,12 @@ export default function DraftBoard({ draft, patch: _patch, championMap, onFocusC
     : 'Esperando partida'
 
   return (
-    <div className="app-panel shrink-0 overflow-hidden basis-[45%] min-w-[360px] max-w-[500px]">
-      <div className="app-header flex items-center justify-between gap-3">
-        <div className="flex items-center gap-3">
-          <span className="text-2xl font-bold leading-none text-lol-gold-light/80">01</span>
-          <div className="flex flex-col leading-tight">
-            <span className="text-lol-gold text-xs font-bold uppercase tracking-[0.18em]">Resumen del draft</span>
-            <span className="text-[10px] font-semibold uppercase tracking-wider text-lol-text-dim">Picks, bans y turnos</span>
-          </div>
-        </div>
+    <div className="flex flex-col h-full overflow-hidden">
+      <div className="app-header flex items-center justify-between gap-3 shrink-0">
+        <span className="text-xs font-bold uppercase text-lol-text">Resumen del draft</span>
         <div className="flex items-center gap-2 min-w-0">
           {draft && currentActionLabel && (
-            <span className="text-lol-gold-light text-[11px] font-semibold truncate">
+            <span className="text-white text-[11px] font-semibold truncate">
               {currentActionLabel} - {formatTimer(draft.timeLeftMs)}
             </span>
           )}
@@ -151,12 +145,12 @@ export default function DraftBoard({ draft, patch: _patch, championMap, onFocusC
         </div>
       </div>
 
-      <div className="p-3 space-y-3">
+      <div className="p-2.5 space-y-2.5 overflow-y-auto flex-1">
         <div className="app-card p-2">
           <div className="mb-2 grid grid-cols-[1fr_auto_1fr] items-center gap-2">
-            <span className="text-lol-blue text-[10px] font-bold uppercase tracking-wider">Aliados</span>
-            <span className="text-lol-text-dim text-[10px] uppercase tracking-[0.18em] font-semibold">Bans</span>
-            <span className="text-lol-red text-[10px] font-bold uppercase tracking-wider text-right">Enemigos</span>
+            <span className="text-lol-blue text-[10px] font-bold uppercase">Aliados</span>
+            <span className="text-lol-text-dim text-[10px] uppercase font-semibold">Bans</span>
+            <span className="text-lol-red text-[10px] font-bold uppercase text-right">Enemigos</span>
           </div>
           <div className="flex items-center gap-1.5">
             <div className="flex gap-1.5 flex-1">
@@ -164,7 +158,7 @@ export default function DraftBoard({ draft, patch: _patch, championMap, onFocusC
                 <BanSlot key={i} side="ally" championId={allyBans[i]?.championId ?? 0} active={allyBans[i]?.id === currentAction?.id} />
               ))}
             </div>
-            <div className="h-6 w-px bg-lol-border shrink-0" />
+            <div className="h-6 w-px bg-lol-border/60 shrink-0" />
             <div className="flex gap-1.5 flex-1 justify-end">
               {Array.from({ length: 5 }).map((_, i) => (
                 <BanSlot key={i} side="enemy" championId={enemyBans[i]?.championId ?? 0} active={enemyBans[i]?.id === currentAction?.id} />

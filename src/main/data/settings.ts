@@ -1,14 +1,21 @@
 import Store from 'electron-store'
 import type { OverlaySettings, UserSettings } from '@shared/types'
 
+const CURRENT_WINDOW_BOUNDS = {
+  width: 390,
+  height: 540
+}
+
+const LEGACY_DEFAULT_WINDOW_BOUNDS = {
+  width: 940,
+  height: 580
+}
+
 const DEFAULT_SETTINGS: UserSettings = {
   overlay: {
     compactMode: false,
     alwaysOnTop: true,
-    windowBounds: {
-      width: 940,
-      height: 580
-    }
+    windowBounds: CURRENT_WINDOW_BOUNDS
   }
 }
 
@@ -19,14 +26,31 @@ const store = new Store<UserSettings>({
 
 export function getSettings(): UserSettings {
   const overlay = store.get('overlay', DEFAULT_SETTINGS.overlay)
+  const windowBounds = {
+    ...DEFAULT_SETTINGS.overlay.windowBounds,
+    ...overlay.windowBounds
+  }
+
+  const usesLegacyDefaultBounds =
+    windowBounds.width === LEGACY_DEFAULT_WINDOW_BOUNDS.width &&
+    windowBounds.height === LEGACY_DEFAULT_WINDOW_BOUNDS.height
+
+  const normalizedWindowBounds = usesLegacyDefaultBounds
+    ? {
+      ...windowBounds,
+      ...CURRENT_WINDOW_BOUNDS
+    }
+    : windowBounds
+
+  if (usesLegacyDefaultBounds) {
+    store.set('overlay.windowBounds', normalizedWindowBounds)
+  }
+
   return {
     overlay: {
       compactMode: Boolean(overlay.compactMode),
       alwaysOnTop: overlay.alwaysOnTop !== false,
-      windowBounds: {
-        ...DEFAULT_SETTINGS.overlay.windowBounds,
-        ...overlay.windowBounds
-      }
+      windowBounds: normalizedWindowBounds
     }
   }
 }

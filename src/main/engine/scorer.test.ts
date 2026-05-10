@@ -59,4 +59,36 @@ describe('scoreChampion', () => {
     expect(rec.breakdown.winRate).toBeLessThan(0.58)
     expect(rec.breakdown.winRate).toBeGreaterThan(0.5)
   })
+
+  it('boosts AP champions when team needs AP damage', () => {
+    const rec = scoreChampion(
+      stats({ champKey: 'Lux' }),
+      { id: 99, key: 'Lux', name: 'Lux', iconUrl: '' },
+      ['Mage', 'Support'],
+      [],
+      [],
+      {},
+      { ...neutralNeeds, needsAP: true, allyDmg: { adCount: 2, apCount: 0, mixCount: 0, total: 2 } },
+      'mid'
+    )
+
+    expect(rec.reasons).toContain('Equipo sin daño AP')
+    expect(rec.breakdown.synergyScore).toBeGreaterThan(0.5)
+  })
+
+  it('boosts frontline champions when team needs a tank/fighter', () => {
+    const rec = scoreChampion(
+      stats({ champKey: 'Leona' }),
+      { id: 89, key: 'Leona', name: 'Leona', iconUrl: '' },
+      ['Tank', 'Support'],
+      [],
+      [],
+      {},
+      { ...neutralNeeds, needsFrontline: true, allyDmg: { adCount: 2, apCount: 1, mixCount: 0, total: 3 } },
+      'mid'
+    )
+
+    expect(rec.reasons).toContain('Frontline necesaria')
+    expect(rec.breakdown.synergyScore).toBeGreaterThan(0.5)
+  })
 })

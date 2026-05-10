@@ -127,3 +127,13 @@ export interface FocusedChampion {
 export interface UserSettings {
   overlay: OverlaySettings
 }
+
+// ─── Historial ──────────────────────────────────────────────────────────────
+
+export interface DraftHistoryEntry {
+  id: string
+  timestamp: number
+  patch: string
+  draft: DraftState
+  recommendations: Recommendation[]
+}

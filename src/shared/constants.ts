@@ -37,7 +37,10 @@ export const IPC = {
   APP_GET_SETTINGS: 'app:getSettings',
   APP_SET_OVERLAY_SETTINGS: 'app:setOverlaySettings',
   GET_RECOMMENDATIONS: 'recommendations:get',
-  GET_BUILD: 'build:get'
+  GET_BUILD: 'build:get',
+  HISTORY_GET: 'history:get',
+  HISTORY_DELETE: 'history:delete',
+  HISTORY_CLEAR: 'history:clear'
 } as const
 
 export const IPC_LISTEN_CHANNELS = [
@@ -59,7 +62,10 @@ export const IPC_INVOKE_CHANNELS = [
   IPC.APP_GET_SETTINGS,
   IPC.APP_SET_OVERLAY_SETTINGS,
   IPC.GET_RECOMMENDATIONS,
-  IPC.GET_BUILD
+  IPC.GET_BUILD,
+  IPC.HISTORY_GET,
+  IPC.HISTORY_DELETE,
+  IPC.HISTORY_CLEAR
 ] as const
 
 export const ROLES = ['top', 'jungle', 'middle', 'bottom', 'utility'] as const

@@ -9,38 +9,40 @@ html, body, #root {
   width: 100%;
   height: 100vh;
   overflow: hidden;
+  color: #c3ccd5;
+  font-synthesis: none;
+  text-rendering: geometricPrecision;
+  -webkit-font-smoothing: antialiased;
 }
 
-::-webkit-scrollbar { width: 4px; }
-::-webkit-scrollbar-track { @apply bg-lol-dark; }
-::-webkit-scrollbar-thumb { @apply rounded-full bg-lol-border-bright; }
-
-.gold-line {
-  background: linear-gradient(90deg, transparent, rgba(201,162,76,0.45), transparent);
-  height: 1px;
+* {
+  letter-spacing: 0;
 }
+
+::-webkit-scrollbar { width: 3px; }
+::-webkit-scrollbar-track { @apply bg-transparent; }
+::-webkit-scrollbar-thumb { @apply rounded-full bg-lol-border-bright/60; }
 
 .panel-gradient {
-  background: linear-gradient(180deg, #081018 0%, #050a0f 100%);
+  background: linear-gradient(180deg, #080d14 0%, #060a10 100%);
 }
 
 @layer components {
   .app-panel {
-    @apply rounded-lg border border-lol-border bg-lol-surface/90 shadow-panel;
-    box-shadow: inset 0 1px 0 rgba(255,255,255,0.025), 0 18px 50px rgba(0,0,0,0.32);
+    @apply rounded border border-lol-border bg-lol-surface/40;
+    backdrop-filter: blur(12px);
   }
 
   .app-card {
-    @apply rounded-md border border-lol-border bg-lol-surface2/60;
-    box-shadow: inset 0 1px 0 rgba(255,255,255,0.02);
+    @apply rounded border border-lol-border/70 bg-lol-dark/25;
   }
 
   .app-card-hover {
-    @apply transition-colors hover:border-lol-border-bright hover:bg-lol-surface2;
+    @apply transition-colors duration-150 hover:border-lol-border-bright/60 hover:bg-lol-surface2/35;
   }
 
   .app-header {
-    @apply border-b border-lol-border bg-lol-dark/35 px-3 py-2;
+    @apply border-b border-lol-border/60 px-3 py-2;
   }
 
   .metric-positive {

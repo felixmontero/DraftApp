@@ -28,10 +28,10 @@ function ToggleRow({
       <span className="text-xs font-semibold text-lol-text">{label}</span>
       <span
         className={`flex h-5 w-9 items-center rounded-full border px-0.5 transition-colors ${
-          checked ? 'justify-end border-lol-gold/55 bg-lol-gold/15' : 'justify-start border-lol-border bg-lol-dark'
+          checked ? 'justify-end border-lol-border-bright bg-lol-surface2' : 'justify-start border-lol-border bg-lol-dark'
         }`}
       >
-        <span className={`h-3.5 w-3.5 rounded-full ${checked ? 'bg-lol-gold-light' : 'bg-lol-text-dim'}`} />
+        <span className={`h-3.5 w-3.5 rounded-full transition-colors ${checked ? 'bg-white' : 'bg-lol-text-dim'}`} />
       </span>
     </button>
   )
@@ -50,11 +50,11 @@ export default function SettingsPanel({
   return (
     <div className="app-panel absolute right-3 top-10 z-20 w-72 overflow-hidden">
       <div className="app-header flex items-center justify-between">
-        <span className="text-xs font-bold uppercase tracking-[0.18em] text-lol-gold">Ajustes</span>
+        <span className="text-xs font-bold uppercase text-lol-text">Ajustes</span>
         <button
           type="button"
           onClick={onClose}
-          className="flex h-6 w-6 items-center justify-center rounded text-lol-text-dim hover:bg-lol-surface2 hover:text-white"
+          className="flex h-6 w-6 items-center justify-center rounded text-lol-text-dim hover:bg-lol-surface2/60 hover:text-white"
           title="Cerrar"
         >
           <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
