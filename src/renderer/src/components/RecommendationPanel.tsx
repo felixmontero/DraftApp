@@ -137,7 +137,15 @@ export default function RecommendationPanel({ draft, patch, recommendations, loa
 
       {/* Header */}
       <div className="app-header flex items-center justify-between gap-3 shrink-0">
-        <span className="text-lol-gold text-xs font-bold uppercase tracking-[0.18em]">{contextLabel}</span>
+        <div className="flex items-center gap-3 min-w-0">
+          <span className="text-2xl font-bold leading-none text-lol-blue/80">{recommendationIntent === 'ban' ? '02' : '03'}</span>
+          <div className="flex min-w-0 flex-col leading-tight">
+            <span className="truncate text-lol-gold text-xs font-bold uppercase tracking-[0.18em]">{contextLabel}</span>
+            <span className="text-[10px] font-semibold uppercase tracking-wider text-lol-text-dim">
+              {recommendationIntent === 'ban' ? 'Prioridad de amenazas' : 'Mejores opciones'}
+            </span>
+          </div>
+        </div>
         <span className="text-lol-text-dim text-[11px] truncate">
           {roleLabel ? `${roleLabel} - ` : ''}{compact ? 'Compacto' : `Parche ${patchDisplay}`}
         </span>

@@ -3,6 +3,7 @@ import StatusBar from './components/StatusBar'
 import DraftBoard from './components/DraftBoard'
 import RecommendationPanel from './components/RecommendationPanel'
 import SettingsPanel from './components/SettingsPanel'
+import NavigationRail from './components/NavigationRail'
 import { CURRENT_PATCH, IPC } from '@shared/constants'
 import type { ConnectionStatus, DraftState, FocusedChampion, Recommendation, UserSettings } from '@shared/types'
 
@@ -117,9 +118,14 @@ export default function App(): React.JSX.Element {
           <div className="w-4 h-4 rounded border border-lol-gold/40 flex items-center justify-center">
             <div className="w-1.5 h-1.5 rounded-sm bg-lol-gold" />
           </div>
-          <span className="text-lol-gold-light text-[11px] font-bold tracking-[0.16em] uppercase">
-            DraftApp
-          </span>
+          <div className="flex items-baseline gap-2">
+            <span className="text-lol-gold-light text-[11px] font-bold tracking-[0.16em] uppercase">
+              DraftApp
+            </span>
+            <span className="hidden text-[10px] font-semibold uppercase tracking-[0.18em] text-lol-text-dim sm:inline">
+              Draft analyst
+            </span>
+          </div>
         </div>
 
         <div
@@ -190,6 +196,7 @@ export default function App(): React.JSX.Element {
       <StatusBar connection={connection} draft={draft} />
 
       <div className={`flex flex-row flex-1 overflow-hidden ${compactMode ? 'p-2 gap-2' : 'p-3 gap-3'}`}>
+        {!compactMode && <NavigationRail inDraft={draft !== null} compactMode={compactMode} />}
         {!compactMode && (
           <DraftBoard
             draft={draft}

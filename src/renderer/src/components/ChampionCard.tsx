@@ -37,17 +37,17 @@ export default function ChampionCard({ rec, rank, intent, selected, onClick }: P
   return (
     <button
       className={`
-        app-card app-card-hover w-full min-h-[54px] px-2 py-1.5 text-left
-        grid grid-cols-[22px_38px_minmax(0,1fr)_auto] items-center gap-2
+        app-card app-card-hover w-full min-h-[58px] px-3 py-2 text-left
+        grid grid-cols-[32px_40px_minmax(0,1fr)_auto] items-center gap-2
         ${selected ? 'border-lol-gold/55 bg-lol-gold/10 shadow-gold' : ''}
       `}
       onClick={onClick}
     >
-      <span className="text-center text-xs font-bold text-lol-text-dim">
+      <span className={`text-center text-lg font-bold leading-none ${rank === 1 ? 'text-lol-gold-light' : 'text-lol-text-dim'}`}>
         {rank > 0 ? String(rank).padStart(2, '0') : ''}
       </span>
 
-      <div className={`h-9 w-9 rounded-md border bg-lol-dark overflow-hidden ${selected ? 'border-lol-gold/55' : 'border-lol-border'}`}>
+      <div className={`h-10 w-10 rounded-md border bg-lol-dark overflow-hidden ${selected ? 'border-lol-gold/55' : 'border-lol-border'}`}>
         {rec.champion.iconUrl ? (
           <img src={rec.champion.iconUrl} alt={rec.champion.name} className="h-full w-full object-cover" />
         ) : (

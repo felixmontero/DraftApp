@@ -134,7 +134,13 @@ export default function DraftBoard({ draft, patch: _patch, championMap, onFocusC
   return (
     <div className="app-panel shrink-0 overflow-hidden basis-[45%] min-w-[360px] max-w-[500px]">
       <div className="app-header flex items-center justify-between gap-3">
-        <span className="text-lol-gold text-xs font-bold uppercase tracking-[0.18em]">Draft</span>
+        <div className="flex items-center gap-3">
+          <span className="text-2xl font-bold leading-none text-lol-gold-light/80">01</span>
+          <div className="flex flex-col leading-tight">
+            <span className="text-lol-gold text-xs font-bold uppercase tracking-[0.18em]">Resumen del draft</span>
+            <span className="text-[10px] font-semibold uppercase tracking-wider text-lol-text-dim">Picks, bans y turnos</span>
+          </div>
+        </div>
         <div className="flex items-center gap-2 min-w-0">
           {draft && currentActionLabel && (
             <span className="text-lol-gold-light text-[11px] font-semibold truncate">
