@@ -117,6 +117,12 @@ export interface OverlaySettings {
   }
 }
 
+export interface FocusedChampion {
+  key: string
+  name: string
+  role: Role
+}
+
 export interface UserSettings {
   overlay: OverlaySettings
 }

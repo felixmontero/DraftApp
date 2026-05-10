@@ -14,6 +14,10 @@ const CHAMP_SELECT_EVENT = 'OnJsonApiEvent_lol-champ-select_v1_session'
 
 type DraftUpdateCb = (state: DraftState) => void
 type DraftEndCb = () => void
+type ParsedChampSelectMessage =
+  | { type: 'ignore' }
+  | { type: 'end' }
+  | { type: 'update'; state: DraftState }
 
 export class LcuEvents {
   private ws: WebSocket | null = null
@@ -127,34 +131,36 @@ export class LcuEvents {
   }
 
   private handleMessage(raw: string): void {
-    if (!raw || raw.length === 0) return
-
-    let msg: unknown
-    try {
-      msg = JSON.parse(raw)
-    } catch {
-      return
-    }
-
-    // Formato WAMP: [tipo, evento, datos]
-    if (!Array.isArray(msg) || msg[0] !== 8) return
-
-    const eventName = msg[1] as string
-    if (!eventName.includes('lol-champ-select')) return
-
-    const payload = msg[2] as { data: LcuSession | null; eventType: string }
-
-    if (!payload?.data || payload.eventType === 'Delete') {
-      this.draftEndCb?.()
-      return
-    }
-
-    const draftState = parseSession(payload.data)
-    this.draftUpdateCb?.(draftState)
+    const parsed = parseChampSelectMessage(raw)
+    if (parsed.type === 'end') this.draftEndCb?.()
+    if (parsed.type === 'update') this.draftUpdateCb?.(parsed.state)
   }
 }
 
 // ─── Parser: LcuSession → DraftState ─────────────────────────────────────────
+
+export function parseChampSelectMessage(raw: string): ParsedChampSelectMessage {
+  if (!raw || raw.length === 0) return { type: 'ignore' }
+
+  let msg: unknown
+  try {
+    msg = JSON.parse(raw)
+  } catch {
+    return { type: 'ignore' }
+  }
+
+  // Formato WAMP: [tipo, evento, datos]
+  if (!Array.isArray(msg) || msg[0] !== 8) return { type: 'ignore' }
+
+  const eventName = msg[1] as string
+  if (!eventName.includes('lol-champ-select')) return { type: 'ignore' }
+
+  const payload = msg[2] as { data: LcuSession | null; eventType: string }
+
+  if (!payload?.data || payload.eventType === 'Delete') return { type: 'end' }
+
+  return { type: 'update', state: parseSession(payload.data) }
+}
 
 export function parseSession(session: LcuSession): DraftState {
   const actions = session.actions?.flat() ?? []

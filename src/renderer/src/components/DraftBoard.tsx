@@ -1,10 +1,12 @@
 import React from 'react'
-import type { DraftAction, DraftState, DraftPlayer } from '@shared/types'
+import type { DraftAction, DraftState, DraftPlayer, FocusedChampion } from '@shared/types'
+import type { Role } from '@shared/constants'
 
 interface Props {
   draft: DraftState | null
   patch: string
   championMap: Record<number, string>
+  onFocusChampion?: (champion: FocusedChampion) => void
 }
 
 const ROLE_LABELS: Record<string, string> = {
@@ -46,15 +48,43 @@ function BanSlot({ championId, side, active }: { championId: number; side: 'ally
   )
 }
 
-function PickSlot({ player, side, isLocal, championMap }: { player: DraftPlayer; side: 'ally' | 'enemy'; isLocal: boolean; championMap: Record<number, string> }): React.JSX.Element {
+function PickSlot({
+  player,
+  side,
+  isLocal,
+  championMap,
+  onFocusChampion
+}: {
+  player: DraftPlayer
+  side: 'ally' | 'enemy'
+  isLocal: boolean
+  championMap: Record<number, string>
+  onFocusChampion?: (champion: FocusedChampion) => void
+}): React.JSX.Element {
   const roleLabel = ROLE_LABELS[player.assignedPosition] ?? '?'
   const hasChamp = player.championId > 0
   const champName = hasChamp ? (championMap[player.championId] ?? `#${player.championId}`) : null
   const icon = championIcon(player.championId)
+  const clickable = Boolean(isLocal && hasChamp && champName && player.assignedPosition)
+  const handleClick = (): void => {
+    if (!clickable || !champName) return
+    onFocusChampion?.({
+      key: champName,
+      name: champName,
+      role: player.assignedPosition as Role
+    })
+  }
 
   return (
-    <div className={`
+    <button
+      type="button"
+      onClick={handleClick}
+      disabled={!clickable}
+      title={clickable ? 'Ver build y runas' : undefined}
+      className={`
+      w-full text-left
       flex items-center gap-2 px-2.5 h-11 rounded border transition-all
+      ${clickable ? 'cursor-pointer hover:border-lol-gold hover:bg-lol-gold/10' : 'cursor-default'}
       ${isLocal ? 'border-lol-gold/60 bg-lol-gold/8' : ''}
       ${!isLocal && side === 'ally' ? 'border-lol-border bg-lol-surface hover:border-lol-border-bright' : ''}
       ${side === 'enemy' ? 'border-lol-red/30 bg-lol-red-dim/40 hover:border-lol-red/50 flex-row-reverse' : ''}
@@ -84,11 +114,11 @@ function PickSlot({ player, side, isLocal, championMap }: { player: DraftPlayer;
       {isLocal && (
         <span className="text-lol-gold text-sm ml-auto shrink-0">▶</span>
       )}
-    </div>
+    </button>
   )
 }
 
-export default function DraftBoard({ draft, patch: _patch, championMap }: Props): React.JSX.Element {
+export default function DraftBoard({ draft, patch: _patch, championMap, onFocusChampion }: Props): React.JSX.Element {
   const allyBans = draft
     ? draft.actions.filter((a: DraftAction) => a.type === 'ban' && a.isAllyAction).slice(0, 5)
     : []
@@ -168,6 +198,7 @@ export default function DraftBoard({ draft, patch: _patch, championMap }: Props)
                     side="ally"
                     isLocal={player.cellId === draft.localPlayerCellId}
                     championMap={championMap}
+                    onFocusChampion={onFocusChampion}
                   />
                 ))
                 : Array.from({ length: 5 }).map((_, i) => (

@@ -3,7 +3,7 @@ import StatusBar from './components/StatusBar'
 import DraftBoard from './components/DraftBoard'
 import RecommendationPanel from './components/RecommendationPanel'
 import { CURRENT_PATCH, IPC } from '@shared/constants'
-import type { ConnectionStatus, DraftState, Recommendation, UserSettings } from '@shared/types'
+import type { ConnectionStatus, DraftState, FocusedChampion, Recommendation, UserSettings } from '@shared/types'
 
 export default function App(): React.JSX.Element {
   const [connection, setConnection] = useState<ConnectionStatus>('disconnected')
@@ -13,6 +13,7 @@ export default function App(): React.JSX.Element {
   const [recommendations, setRecs] = useState<Recommendation[]>([])
   const [recsLoading, setRecsLoading] = useState(false)
   const [compactMode, setCompactMode] = useState(false)
+  const [focusedChampion, setFocusedChampion] = useState<FocusedChampion | null>(null)
 
   useEffect(() => {
     let active = true
@@ -32,6 +33,7 @@ export default function App(): React.JSX.Element {
       window.api.on(IPC.LCU_DISCONNECTED, () => {
         setConnection('disconnected')
         setDraft(null)
+        setFocusedChampion(null)
         setRecs([])
         setRecsLoading(false)
       }),
@@ -46,6 +48,7 @@ export default function App(): React.JSX.Element {
           })
         } else {
           setDraft(null)
+          setFocusedChampion(null)
           setConnection('connected')
           setRecs([])
           setRecsLoading(false)
@@ -145,7 +148,12 @@ export default function App(): React.JSX.Element {
 
       <div className={`flex flex-row flex-1 overflow-hidden ${compactMode ? 'p-2 gap-2' : 'p-3 gap-3'}`}>
         {!compactMode && (
-          <DraftBoard draft={draft} patch={patch} championMap={championMap} />
+          <DraftBoard
+            draft={draft}
+            patch={patch}
+            championMap={championMap}
+            onFocusChampion={setFocusedChampion}
+          />
         )}
         <RecommendationPanel
           draft={draft}
@@ -153,6 +161,7 @@ export default function App(): React.JSX.Element {
           recommendations={recommendations}
           loading={recsLoading}
           compact={compactMode}
+          focusedChampion={focusedChampion}
         />
       </div>
 

@@ -1,0 +1,9 @@
+[
+  8,
+  "OnJsonApiEvent_lol-champ-select_v1_session",
+  {
+    "eventType": "Delete",
+    "uri": "/lol-champ-select/v1/session",
+    "data": null
+  }
+]

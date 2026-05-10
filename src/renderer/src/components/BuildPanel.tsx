@@ -4,6 +4,7 @@ import type { Build } from '@shared/types'
 interface Props {
   build: Build
   championName: string
+  compact?: boolean
 }
 
 const RUNE_PATHS: Record<number, string> = {
@@ -51,7 +52,7 @@ function RuneIcon({ runeId, size = 'md' }: { runeId: number; size?: 'sm' | 'md' 
   )
 }
 
-export default function BuildPanel({ build, championName }: Props): React.JSX.Element {
+export default function BuildPanel({ build, championName, compact = false }: Props): React.JSX.Element {
   const { items, runes } = build
   const primaryName   = RUNE_PATHS[runes.primaryPath]   ?? 'Primary'
   const secondaryName = RUNE_PATHS[runes.secondaryPath] ?? 'Secondary'
@@ -60,6 +61,28 @@ export default function BuildPanel({ build, championName }: Props): React.JSX.El
 
   // Normalise items array to exactly 6 slots
   const itemSlots = Array.from({ length: 6 }, (_, i) => items[i] ?? 0)
+
+  if (compact) {
+    return (
+      <div className="bg-lol-dark/60 border border-lol-border rounded-md p-2 mt-1">
+        <div className="flex items-center justify-between gap-2 mb-1.5">
+          <span className="text-lol-gold text-[10px] font-bold uppercase tracking-wider truncate">
+            Runas · {championName}
+          </span>
+          <span className={`text-[10px] font-semibold shrink-0 ${primaryColor}`}>{primaryName}</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          {(runes.primaryRunes.length > 0 ? runes.primaryRunes : [0, 0, 0, 0]).map((id, i) => (
+            <RuneIcon key={`p-${i}`} runeId={id} size="sm" />
+          ))}
+          <div className="w-px h-6 bg-lol-border mx-0.5 shrink-0" />
+          {(runes.secondaryRunes.length > 0 ? runes.secondaryRunes : [0, 0]).map((id, i) => (
+            <RuneIcon key={`s-${i}`} runeId={id} size="sm" />
+          ))}
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="bg-lol-dark/60 border border-lol-border rounded-md p-2 mt-1">

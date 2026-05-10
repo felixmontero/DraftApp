@@ -1,0 +1,26 @@
+{
+  "localPlayerCellId": 2,
+  "myTeam": [
+    { "cellId": 1, "championId": 54, "assignedPosition": "top", "summonerId": 101 },
+    { "cellId": 2, "championId": 222, "assignedPosition": "bottom", "summonerId": 102 },
+    { "cellId": 3, "championId": 99, "assignedPosition": "utility", "summonerId": 103 }
+  ],
+  "theirTeam": [
+    { "cellId": 6, "championId": 157, "assignedPosition": "middle", "summonerId": 201 },
+    { "cellId": 7, "championId": 64, "assignedPosition": "jungle", "summonerId": 202 }
+  ],
+  "actions": [
+    [
+      { "id": 11, "type": "ban", "championId": 119, "completed": true, "isAllyAction": true, "isInProgress": false },
+      { "id": 12, "type": "ban", "championId": 30, "completed": true, "isAllyAction": false, "isInProgress": false }
+    ],
+    [
+      { "id": 21, "type": "pick", "championId": 222, "completed": true, "isAllyAction": true, "isInProgress": false },
+      { "id": 22, "type": "pick", "championId": 157, "completed": true, "isAllyAction": false, "isInProgress": false }
+    ]
+  ],
+  "timer": {
+    "adjustedTimeLeftInPhase": 0,
+    "phase": "FINALIZATION"
+  }
+}

@@ -1,7 +1,7 @@
 import React, { useState, useCallback } from 'react'
 import ChampionCard from './ChampionCard'
 import BuildPanel from './BuildPanel'
-import type { DraftState, Recommendation, Build } from '@shared/types'
+import type { DraftState, Recommendation, Build, FocusedChampion } from '@shared/types'
 import type { Role } from '@shared/constants'
 import { ddPatchToDisplay, IPC } from '@shared/constants'
 
@@ -11,9 +11,10 @@ interface Props {
   recommendations: Recommendation[]
   loading: boolean
   compact?: boolean
+  focusedChampion?: FocusedChampion | null
 }
 
-export default function RecommendationPanel({ draft, patch, recommendations, loading, compact = false }: Props): React.JSX.Element {
+export default function RecommendationPanel({ draft, patch, recommendations, loading, compact = false, focusedChampion = null }: Props): React.JSX.Element {
   const localPlayer  = draft?.myTeam.find(p => p.cellId === draft.localPlayerCellId)
   const roleLabel    = localPlayer?.assignedPosition?.toUpperCase() ?? null
   const role         = localPlayer?.assignedPosition as Role | undefined
@@ -40,9 +41,22 @@ export default function RecommendationPanel({ draft, patch, recommendations, loa
   const selectedKeyRef = React.useRef<string | null>(null)
   const roleRef = React.useRef<Role | undefined>(undefined)
   const intentRef = React.useRef<typeof recommendationIntent>(undefined)
+  const buildRequestRef = React.useRef(0)
   selectedKeyRef.current = selectedKey
   roleRef.current = role
   intentRef.current = recommendationIntent
+
+  const loadBuild = useCallback(async (key: string, targetRole: Role): Promise<void> => {
+    const requestId = buildRequestRef.current + 1
+    buildRequestRef.current = requestId
+    setBuildLoading(true)
+    try {
+      const build = await window.api.invoke(IPC.GET_BUILD, { champKey: key, role: targetRole }) as Build | null
+      if (buildRequestRef.current === requestId && selectedKeyRef.current === key) setSelectedBuild(build)
+    } finally {
+      if (buildRequestRef.current === requestId && selectedKeyRef.current === key) setBuildLoading(false)
+    }
+  }, [])
 
   // Resetear selección solo cuando comienza un champion select NUEVO (draft pasa de null → no-null)
   // No resetear cuando draft pasa a null — el poller puede enviar null momentáneamente
@@ -52,9 +66,19 @@ export default function RecommendationPanel({ draft, patch, recommendations, loa
       setSelectedKey(null)
       setSelectedRecommendation(null)
       setSelectedBuild(null)
+      setBuildLoading(false)
     }
     prevDraftRef.current = draft
   }, [draft])
+
+  React.useEffect(() => {
+    if (!focusedChampion) return
+    setSelectedKey(focusedChampion.key)
+    setSelectedName(focusedChampion.name)
+    setSelectedRecommendation(null)
+    setSelectedBuild(null)
+    void loadBuild(focusedChampion.key, focusedChampion.role)
+  }, [focusedChampion, loadBuild])
 
   const handleSelect = useCallback(async (rec: Recommendation) => {
     const { key, name } = rec.champion
@@ -64,6 +88,7 @@ export default function RecommendationPanel({ draft, patch, recommendations, loa
       setSelectedKey(null)
       setSelectedRecommendation(null)
       setSelectedBuild(null)
+      setBuildLoading(false)
       return
     }
     if (!roleRef.current) return
@@ -72,14 +97,8 @@ export default function RecommendationPanel({ draft, patch, recommendations, loa
     setSelectedRecommendation(rec)
     setSelectedBuild(null)
     if (intentRef.current === 'ban') return
-    setBuildLoading(true)
-    try {
-      const build = await window.api.invoke(IPC.GET_BUILD, { champKey: key, role: roleRef.current }) as Build | null
-      if (selectedKeyRef.current === key) setSelectedBuild(build)
-    } finally {
-      if (selectedKeyRef.current === key) setBuildLoading(false)
-    }
-  }, [])  // Sin dependencias — usa refs
+    void loadBuild(key, roleRef.current)
+  }, [loadBuild])  // Sin dependencias de estado — usa refs
 
   const inDraft = draft !== null
   const visibleRecommendations = compact ? recommendations.slice(0, 3) : recommendations
@@ -87,7 +106,7 @@ export default function RecommendationPanel({ draft, patch, recommendations, loa
     ? visibleRecommendations.some(rec => rec.champion.key === selectedKey)
     : false
   const showPinnedSelection = Boolean(
-    !compact && selectedRecommendation && selectedKey && !selectedStillVisible && (buildLoading || selectedBuild)
+    selectedKey && !selectedStillVisible && (buildLoading || selectedBuild)
   )
 
   const renderBuildState = (): React.JSX.Element => (
@@ -99,7 +118,7 @@ export default function RecommendationPanel({ draft, patch, recommendations, loa
         </div>
       )
       : selectedBuild
-        ? <BuildPanel build={selectedBuild} championName={selectedName} />
+        ? <BuildPanel build={selectedBuild} championName={selectedName} compact={compact} />
         : (
           <p className="text-lol-text-dim text-xs px-3 py-1">
             Build no disponible para este campeón/rol
@@ -156,6 +175,22 @@ export default function RecommendationPanel({ draft, patch, recommendations, loa
             </div>
           )}
 
+          {showPinnedSelection && !selectedRecommendation && (
+            <div className="mb-1 rounded-md border border-lol-gold/40 bg-lol-gold/5 p-1">
+              <div className="px-2 pb-1 text-[10px] font-bold uppercase tracking-wider text-lol-gold-light">
+                Tu selección
+              </div>
+              <div className="flex items-center gap-2 rounded-md border border-lol-gold/50 bg-lol-surface2 px-2 py-1.5">
+                <div className="h-9 w-9 shrink-0 overflow-hidden rounded border border-lol-gold/60 bg-lol-dark">
+                  <img src={`ddragon://${selectedKey}.png`} alt={selectedName} className="h-full w-full object-cover" />
+                </div>
+                <span className="min-w-0 flex-1 truncate text-xs font-semibold text-white">{selectedName}</span>
+                <span className="shrink-0 text-[10px] font-bold uppercase text-lol-gold-light">Build</span>
+              </div>
+              {renderBuildState()}
+            </div>
+          )}
+
           {visibleRecommendations.map((rec, i) => (
             <React.Fragment key={rec.champion.id}>
               <ChampionCard
@@ -165,7 +200,7 @@ export default function RecommendationPanel({ draft, patch, recommendations, loa
                 selected={selectedKey === rec.champion.key}
                 onClick={() => handleSelect(rec)}
               />
-              {!compact && selectedKey === rec.champion.key && (
+              {selectedKey === rec.champion.key && (
                 renderBuildState()
               )}
             </React.Fragment>
