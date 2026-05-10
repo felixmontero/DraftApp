@@ -11,18 +11,45 @@ html, body, #root {
   overflow: hidden;
 }
 
-/* Scrollbar */
 ::-webkit-scrollbar { width: 4px; }
 ::-webkit-scrollbar-track { @apply bg-lol-dark; }
-::-webkit-scrollbar-thumb { @apply bg-lol-border-bright rounded-full; }
+::-webkit-scrollbar-thumb { @apply rounded-full bg-lol-border-bright; }
 
-/* Línea decorativa dorada */
 .gold-line {
-  background: linear-gradient(90deg, transparent, #c89b3c, transparent);
+  background: linear-gradient(90deg, transparent, rgba(201,162,76,0.45), transparent);
   height: 1px;
 }
 
-/* Degradado panel */
 .panel-gradient {
-  background: linear-gradient(180deg, #0d1826 0%, #0a1520 100%);
+  background: linear-gradient(180deg, #081018 0%, #050a0f 100%);
+}
+
+@layer components {
+  .app-panel {
+    @apply rounded-lg border border-lol-border bg-lol-surface/90 shadow-panel;
+  }
+
+  .app-card {
+    @apply rounded-md border border-lol-border bg-lol-surface2/60;
+  }
+
+  .app-card-hover {
+    @apply transition-colors hover:border-lol-border-bright hover:bg-lol-surface2;
+  }
+
+  .app-header {
+    @apply border-b border-lol-border bg-lol-dark/35 px-3 py-2;
+  }
+
+  .metric-positive {
+    @apply text-lol-green;
+  }
+
+  .team-ally {
+    @apply border-l-lol-blue/70;
+  }
+
+  .team-enemy {
+    @apply border-l-lol-red/70;
+  }
 }

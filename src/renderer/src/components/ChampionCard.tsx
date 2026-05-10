@@ -1,6 +1,5 @@
 import React from 'react'
-import type { Recommendation } from '@shared/types'
-import type { Tier } from '@shared/types'
+import type { Recommendation, Tier } from '@shared/types'
 
 interface Props {
   rec: Recommendation
@@ -10,116 +9,85 @@ interface Props {
   onClick?: () => void
 }
 
-const RANK_STYLE: Record<number, string> = {
-  1: 'text-lol-gold-light font-bold',
-  2: 'text-lol-text font-semibold',
-  3: 'text-lol-text font-semibold',
-}
-
 const TIER_STYLE: Record<Tier, string> = {
-  S: 'bg-lol-gold/20 text-lol-gold-light border-lol-gold/50',
-  A: 'bg-blue-900/30 text-blue-300 border-blue-600/50',
-  B: 'bg-teal-900/30 text-teal-300 border-teal-600/50',
-  C: 'bg-lol-surface2 text-lol-text border-lol-border',
-  D: 'bg-red-900/20 text-red-400 border-red-700/40',
+  S: 'border-lol-gold/45 bg-lol-gold/10 text-lol-gold-light',
+  A: 'border-lol-blue/35 bg-lol-blue-dim/30 text-lol-blue',
+  B: 'border-teal-500/30 bg-teal-500/10 text-teal-300',
+  C: 'border-lol-border bg-lol-surface text-lol-text',
+  D: 'border-lol-red/35 bg-lol-red-dim/40 text-lol-red'
 }
 
-function barColor(score: number): string {
-  if (score >= 85) return 'bg-lol-gold'
-  if (score >= 70) return 'bg-lol-blue'
-  return 'bg-lol-border-bright'
+function tierFromBonus(tierBonus: number): Tier {
+  if (tierBonus >= 0.9) return 'S'
+  if (tierBonus >= 0.7) return 'A'
+  if (tierBonus >= 0.5) return 'B'
+  if (tierBonus >= 0.3) return 'C'
+  return 'D'
 }
 
 export default function ChampionCard({ rec, rank, intent, selected, onClick }: Props): React.JSX.Element {
   const score = Math.round(rec.score)
-  const tier  = rec.breakdown.tierBonus >= 0.9 ? 'S'
-              : rec.breakdown.tierBonus >= 0.7 ? 'A'
-              : rec.breakdown.tierBonus >= 0.5 ? 'B'
-              : rec.breakdown.tierBonus >= 0.3 ? 'C' : 'D'
+  const tier = tierFromBonus(rec.breakdown.tierBonus)
   const wr = (rec.breakdown.winRate * 100).toFixed(1)
   const reasons = rec.reasons.length > 0 ? rec.reasons.slice(0, selected ? 3 : 2) : ['Pick consistente']
+  const intentColor = intent === 'ban'
+    ? 'border-lol-red/35 bg-lol-red-dim/40 text-lol-red'
+    : 'border-lol-blue/35 bg-lol-blue-dim/30 text-lol-blue'
 
   return (
     <button
       className={`
-        w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-left
-        border transition-all
-        ${selected
-          ? 'border-lol-gold/60 bg-lol-gold/8 shadow-gold'
-          : 'border-lol-border bg-lol-surface2 hover:border-lol-border-bright hover:bg-lol-surface2/80'
-        }
+        app-card app-card-hover w-full min-h-[54px] px-2 py-1.5 text-left
+        grid grid-cols-[22px_38px_minmax(0,1fr)_auto] items-center gap-2
+        ${selected ? 'border-lol-gold/55 bg-lol-gold/10 shadow-gold' : ''}
       `}
       onClick={onClick}
     >
-      {/* Rank */}
-      <span className={`text-xs w-4 text-center shrink-0 ${RANK_STYLE[rank] ?? 'text-lol-text-dim'}`}>
-        {rank > 0 ? rank : ''}
+      <span className="text-center text-xs font-bold text-lol-text-dim">
+        {rank > 0 ? String(rank).padStart(2, '0') : ''}
       </span>
 
-      {/* Icon */}
-      <div className={`
-        w-11 h-11 rounded border shrink-0 overflow-hidden bg-lol-dark transition-colors
-        ${selected ? 'border-lol-gold/60' : 'border-lol-border'}
-      `}>
+      <div className={`h-9 w-9 rounded-md border bg-lol-dark overflow-hidden ${selected ? 'border-lol-gold/55' : 'border-lol-border'}`}>
         {rec.champion.iconUrl ? (
-          <img src={rec.champion.iconUrl} alt={rec.champion.name} className="w-full h-full object-cover" />
+          <img src={rec.champion.iconUrl} alt={rec.champion.name} className="h-full w-full object-cover" />
         ) : (
-          <span className="flex items-center justify-center w-full h-full text-lol-text-dim text-xs">
+          <span className="flex h-full w-full items-center justify-center text-[10px] text-lol-text-dim">
             {rec.champion.key.slice(0, 2)}
           </span>
         )}
       </div>
 
-      {/* Info */}
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center justify-between mb-0.5">
-          <span className="text-white text-xs font-semibold truncate">{rec.champion.name}</span>
-          <div className="flex items-center gap-1 ml-1 shrink-0">
-            {intent && (
-              <span className={`text-[10px] font-bold px-1 rounded border leading-4 ${
-                intent === 'ban'
-                  ? 'bg-lol-red-dim text-red-300 border-lol-red/50'
-                  : 'bg-lol-blue-dim/30 text-lol-blue border-lol-blue/40'
-              }`}>
-                {intent === 'ban' ? 'BAN' : 'PICK'}
-              </span>
-            )}
-            {/* Tier badge */}
-            <span className={`text-[10px] font-bold px-1 rounded border leading-4 ${TIER_STYLE[tier as Tier]}`}>
-              {tier}
+      <div className="min-w-0">
+        <div className="mb-1 flex items-center gap-1.5">
+          <span className="truncate text-xs font-semibold text-white">{rec.champion.name}</span>
+          {intent && (
+            <span className={`rounded border px-1.5 py-0.5 text-[9px] font-bold leading-none ${intentColor}`}>
+              {intent === 'ban' ? 'BAN' : 'PICK'}
             </span>
-            {/* Score */}
-            <span className={`text-xs font-bold ${score >= 85 ? 'text-lol-gold-light' : 'text-lol-text'}`}>
-              {score}<span className="text-lol-text-dim font-normal text-[10px]">pts</span>
+          )}
+          <span className={`rounded border px-1.5 py-0.5 text-[9px] font-bold leading-none ${TIER_STYLE[tier]}`}>
+            {tier}
+          </span>
+        </div>
+        <div className="flex flex-wrap gap-x-1.5 gap-y-0.5">
+          {reasons.map((reason, index) => (
+            <span key={`${reason}-${index}`} className="max-w-[150px] truncate text-[10px] leading-4 text-lol-text-dim">
+              {index > 0 ? '- ' : ''}{reason}
             </span>
-          </div>
-        </div>
-
-        {/* Score bar */}
-        <div className="h-1 bg-lol-dark rounded-full overflow-hidden mb-0.5">
-          <div className={`h-full rounded-full transition-all ${barColor(score)}`} style={{ width: `${score}%` }} />
-        </div>
-
-        {/* Win rate + reasons */}
-        <div className="flex items-start justify-between gap-1">
-          <div className="flex flex-wrap gap-x-1 gap-y-0.5 min-w-0">
-            {reasons.map((reason, index) => (
-              <span key={`${reason}-${index}`} className="text-lol-text-dim text-[11px] leading-4 truncate max-w-[150px]">
-                {index > 0 ? '· ' : ''}{reason}
-              </span>
-            ))}
-          </div>
-          <span className="text-lol-text-dim text-[10px] ml-1 shrink-0">{wr}% WR</span>
+          ))}
         </div>
       </div>
 
-      {/* Expand indicator */}
-      <svg
-        className={`w-3 h-3 shrink-0 transition-transform ${selected ? 'rotate-90 text-lol-gold' : 'text-lol-text-dim'}`}
-        fill="none" viewBox="0 0 6 10" stroke="currentColor" strokeWidth={1.5}
-      >
-        <path strokeLinecap="round" strokeLinejoin="round" d="M1 1l4 4-4 4" />
-      </svg>
+      <div className="grid min-w-[74px] grid-cols-2 gap-2 text-right">
+        <div>
+          <div className="text-[9px] uppercase text-lol-text-dim">WR</div>
+          <div className="metric-positive text-xs font-bold">{wr}%</div>
+        </div>
+        <div>
+          <div className="text-[9px] uppercase text-lol-text-dim">Score</div>
+          <div className="text-xs font-bold text-lol-gold-light">{score}</div>
+        </div>
+      </div>
     </button>
   )
 }

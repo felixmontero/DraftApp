@@ -57,6 +57,7 @@
 - Seleccion fijada para no perder runas cuando el campeon elegido desaparece de recomendaciones.
 - `BuildPanel` con items y runas.
 - Vista compacta de runas para modo compacto.
+- Rediseno minimalista evolutivo con paneles sobrios, cards densas y jerarquia tipo analyst tool.
 - Script `pack:win` para release interno en `release/win-unpacked/DraftApp.exe`.
 
 ---

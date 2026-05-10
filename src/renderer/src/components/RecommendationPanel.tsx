@@ -58,8 +58,8 @@ export default function RecommendationPanel({ draft, patch, recommendations, loa
     }
   }, [])
 
-  // Resetear selección solo cuando comienza un champion select NUEVO (draft pasa de null → no-null)
-  // No resetear cuando draft pasa a null — el poller puede enviar null momentáneamente
+  // Resetear seleccion solo cuando comienza un champion select nuevo.
+  // No resetear cuando draft pasa a null: el poller puede enviar null momentaneamente.
   const prevDraftRef = React.useRef<DraftState | null>(null)
   React.useEffect(() => {
     if (draft !== null && prevDraftRef.current === null) {
@@ -85,7 +85,7 @@ export default function RecommendationPanel({ draft, patch, recommendations, loa
 
   const handleSelect = useCallback(async (rec: Recommendation) => {
     const { key, name } = rec.champion
-    // Usar refs para evitar closures obsoletas — esto evita que el callback
+    // Usar refs para evitar closures obsoletas. Esto evita que el callback
     // se recree en cada render, lo que causa re-renders innecesarios en los hijos
     if (selectedKeyRef.current === key) {
       buildRequestRef.current += 1
@@ -104,7 +104,7 @@ export default function RecommendationPanel({ draft, patch, recommendations, loa
     setSelectedBuild(null)
     if (intentRef.current === 'ban') return
     void loadBuild(key, roleRef.current)
-  }, [loadBuild])  // Sin dependencias de estado — usa refs
+  }, [loadBuild])  // Sin dependencias de estado; usa refs
 
   const inDraft = draft !== null
   const visibleRecommendations = compact ? recommendations.slice(0, 3) : recommendations
@@ -118,27 +118,27 @@ export default function RecommendationPanel({ draft, patch, recommendations, loa
   const renderBuildState = (): React.JSX.Element => (
     buildLoading
       ? (
-        <div className="flex items-center gap-2 px-3 py-2 text-lol-text-dim text-xs">
-          <div className="w-4 h-4 border border-lol-gold/30 border-t-lol-gold rounded-full animate-spin" />
-          Cargando build…
+        <div className="app-card flex items-center gap-2 px-3 py-2 text-lol-text-dim text-xs">
+          <div className="w-4 h-4 border border-lol-gold/25 border-t-lol-gold rounded-full animate-spin" />
+          Cargando build...
         </div>
       )
       : selectedBuild
         ? <BuildPanel build={selectedBuild} championName={selectedName} compact={compact} />
         : (
-          <p className="text-lol-text-dim text-xs px-3 py-1">
-            Build no disponible para este campeón/rol
+          <p className="app-card text-lol-text-dim text-xs px-3 py-2">
+            Build no disponible para este campeon/rol
           </p>
         )
   )
 
   return (
-    <div className="flex flex-col flex-1 overflow-hidden bg-lol-surface border border-lol-border rounded-md">
+    <div className="app-panel flex flex-col flex-1 overflow-hidden">
 
       {/* Header */}
-      <div className="flex items-center justify-between px-3 py-1.5 bg-lol-dark/60 border-b border-lol-border shrink-0">
-        <span className="text-lol-gold text-xs font-bold uppercase tracking-wider">{contextLabel}</span>
-        <span className="text-lol-text-dim text-xs truncate">
+      <div className="app-header flex items-center justify-between gap-3 shrink-0">
+        <span className="text-lol-gold text-xs font-bold uppercase tracking-[0.18em]">{contextLabel}</span>
+        <span className="text-lol-text-dim text-[11px] truncate">
           {roleLabel ? `${roleLabel} - ` : ''}{compact ? 'Compacto' : `Parche ${patchDisplay}`}
         </span>
       </div>
@@ -146,29 +146,29 @@ export default function RecommendationPanel({ draft, patch, recommendations, loa
       {/* Body */}
       {!inDraft ? (
         <div className="flex-1 flex flex-col items-center justify-center text-center p-4">
-          <div className="w-10 h-10 rounded-full border border-lol-border flex items-center justify-center mb-3">
+          <div className="w-10 h-10 rounded-full border border-lol-border bg-lol-dark/50 flex items-center justify-center mb-3">
             <svg className="w-5 h-5 text-lol-text-dim" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
                 d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
           </div>
-          <p className="text-lol-text text-sm font-medium">Esperando champion select</p>
+          <p className="text-lol-text text-sm font-semibold">Esperando champion select</p>
           <p className="text-lol-text-dim text-xs mt-1">Inicia una partida para ver recomendaciones</p>
         </div>
 
       ) : loading && recommendations.length === 0 ? (
         <div className="flex-1 flex flex-col items-center justify-center text-center p-4">
-          <div className="w-8 h-8 border-2 border-lol-gold/30 border-t-lol-gold rounded-full animate-spin mb-3" />
-          <p className="text-lol-text text-sm font-medium">Calculando recomendaciones…</p>
+          <div className="w-8 h-8 border border-lol-gold/25 border-t-lol-gold rounded-full animate-spin mb-3" />
+          <p className="text-lol-text text-sm font-semibold">Calculando recomendaciones...</p>
           <p className="text-lol-text-dim text-xs mt-1">Obteniendo datos de Lolalytics</p>
         </div>
 
       ) : recommendations.length > 0 || showPinnedSelection ? (
-        <div className="flex flex-col overflow-y-auto p-2 gap-1">
+        <div className="flex flex-col overflow-y-auto p-2 gap-1.5">
           {showPinnedSelection && selectedRecommendation && (
-            <div className="mb-1 rounded-md border border-lol-gold/40 bg-lol-gold/5 p-1">
-              <div className="px-2 pb-1 text-[10px] font-bold uppercase tracking-wider text-lol-gold-light">
-                Selección fijada
+            <div className="mb-1 app-card border-l-2 border-l-lol-gold/70 p-1.5">
+              <div className="px-1.5 pb-1 text-[10px] font-bold uppercase tracking-wider text-lol-gold-light">
+                Seleccion fijada
               </div>
               <ChampionCard
                 rec={selectedRecommendation}
@@ -182,12 +182,12 @@ export default function RecommendationPanel({ draft, patch, recommendations, loa
           )}
 
           {showPinnedSelection && !selectedRecommendation && (
-            <div className="mb-1 rounded-md border border-lol-gold/40 bg-lol-gold/5 p-1">
-              <div className="px-2 pb-1 text-[10px] font-bold uppercase tracking-wider text-lol-gold-light">
-                Tu selección
+            <div className="mb-1 app-card border-l-2 border-l-lol-gold/70 p-1.5">
+              <div className="px-1.5 pb-1 text-[10px] font-bold uppercase tracking-wider text-lol-gold-light">
+                Tu seleccion
               </div>
-              <div className="flex items-center gap-2 rounded-md border border-lol-gold/50 bg-lol-surface2 px-2 py-1.5">
-                <div className="h-9 w-9 shrink-0 overflow-hidden rounded border border-lol-gold/60 bg-lol-dark">
+              <div className="app-card flex items-center gap-2 px-2 py-1.5 border-l-2 border-l-lol-gold/70">
+                <div className="h-9 w-9 shrink-0 overflow-hidden rounded-md border border-lol-gold/45 bg-lol-dark">
                   <img src={`ddragon://${selectedKey}.png`} alt={selectedName} className="h-full w-full object-cover" />
                 </div>
                 <span className="min-w-0 flex-1 truncate text-xs font-semibold text-white">{selectedName}</span>
@@ -215,9 +215,9 @@ export default function RecommendationPanel({ draft, patch, recommendations, loa
 
       ) : (
         <div className="flex-1 flex flex-col items-center justify-center text-center p-4">
-          <p className="text-lol-text text-sm font-medium">Sin recomendaciones disponibles</p>
+          <p className="text-lol-text text-sm font-semibold">Sin recomendaciones disponibles</p>
           <p className="text-lol-text-dim text-xs mt-1">
-            {roleLabel ? 'Datos no disponibles para este rol' : 'Esperando asignación de rol…'}
+            {roleLabel ? 'Datos no disponibles para este rol' : 'Esperando asignacion de rol...'}
           </p>
         </div>
       )}

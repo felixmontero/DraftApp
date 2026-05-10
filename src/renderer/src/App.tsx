@@ -106,18 +106,18 @@ export default function App(): React.JSX.Element {
   }
 
   return (
-    <div className="relative flex flex-col h-screen panel-gradient border border-lol-border rounded-lg overflow-hidden select-none shadow-2xl">
+    <div className="relative flex flex-col h-screen panel-gradient border border-lol-border rounded-lg overflow-hidden select-none shadow-panel">
 
       {/* Barra de titulo */}
       <div
-        className="h-9 bg-lol-dark flex items-center justify-between px-3 shrink-0 cursor-move border-b border-lol-border"
+        className="h-8 bg-lol-dark/90 flex items-center justify-between px-3 shrink-0 cursor-move border-b border-lol-border"
         style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}
       >
         <div className="flex items-center gap-2">
-          <div className="w-4 h-4 rounded-sm bg-lol-gold/20 border border-lol-gold/50 flex items-center justify-center">
-            <div className="w-2 h-2 rounded-sm bg-lol-gold" />
+          <div className="w-4 h-4 rounded border border-lol-gold/40 flex items-center justify-center">
+            <div className="w-1.5 h-1.5 rounded-sm bg-lol-gold" />
           </div>
-          <span className="text-lol-gold-light text-xs font-bold tracking-widest uppercase">
+          <span className="text-lol-gold-light text-[11px] font-bold tracking-[0.16em] uppercase">
             DraftApp
           </span>
         </div>
