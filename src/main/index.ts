@@ -14,6 +14,7 @@ import { IPC } from '@shared/constants'
 import { fetchLatestPatch, fetchChampionList, buildIdMap, fetchRuneIconMap } from './data/datadragon'
 import { fetchChampionBuild, toShortPatch } from './data/lolalytics'
 import { cache } from './data/cache'
+import { getSettings, updateOverlaySettings } from './data/settings'
 import { computeRecommendations } from './engine/recommendations'
 import type { DraftState } from '@shared/types'
 import type { ChampionEntry } from '@shared/types'
@@ -207,9 +208,13 @@ function setupLcu(): void {
 // ─── Ventana principal ─────────────────────────────────────────────────────────
 
 function createWindow(): void {
+  const settings = getSettings()
+  const bounds = settings.overlay.windowBounds
   mainWindow = new BrowserWindow({
-    width: 940,
-    height: 580,
+    x: bounds.x,
+    y: bounds.y,
+    width: bounds.width,
+    height: bounds.height,
     minWidth: 360,
     minHeight: 420,
     show: false,
@@ -227,6 +232,25 @@ function createWindow(): void {
   })
 
   mainWindow.on('ready-to-show', () => { mainWindow!.show() })
+
+  let saveBoundsTimer: ReturnType<typeof setTimeout> | null = null
+  const scheduleBoundsSave = (): void => {
+    if (!mainWindow || mainWindow.isDestroyed()) return
+    if (saveBoundsTimer) clearTimeout(saveBoundsTimer)
+    saveBoundsTimer = setTimeout(() => {
+      if (!mainWindow || mainWindow.isDestroyed()) return
+      updateOverlaySettings({ windowBounds: mainWindow.getBounds() })
+    }, 350)
+  }
+
+  mainWindow.on('move', scheduleBoundsSave)
+  mainWindow.on('resize', scheduleBoundsSave)
+  mainWindow.on('close', () => {
+    if (saveBoundsTimer) clearTimeout(saveBoundsTimer)
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      updateOverlaySettings({ windowBounds: mainWindow.getBounds() })
+    }
+  })
 
   mainWindow.webContents.setWindowOpenHandler((details) => {
     shell.openExternal(details.url)
@@ -309,6 +333,10 @@ ipcMain.handle(IPC.WINDOW_CLOSE,    () => mainWindow?.close())
 
 ipcMain.handle(IPC.LCU_GET_STATUS,  () => lcuConnected ? 'connected' : 'disconnected')
 ipcMain.handle(IPC.CHAMPIONS_GET,  () => cachedChampionMap)
+ipcMain.handle(IPC.APP_GET_SETTINGS, () => getSettings())
+ipcMain.handle(IPC.APP_SET_OVERLAY_SETTINGS, (_event, settings: unknown) => {
+  return updateOverlaySettings(settings as Parameters<typeof updateOverlaySettings>[0])
+})
 ipcMain.handle(IPC.APP_GET_SNAPSHOT, () => ({
   connection: lcuConnected ? 'connected' : 'disconnected',
   patch: currentPatch,

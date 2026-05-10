@@ -106,3 +106,17 @@ export interface AppState {
   recommendations: Recommendation[]
   selectedBuild: Build | null
 }
+
+export interface OverlaySettings {
+  compactMode: boolean
+  windowBounds: {
+    x?: number
+    y?: number
+    width: number
+    height: number
+  }
+}
+
+export interface UserSettings {
+  overlay: OverlaySettings
+}

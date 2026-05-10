@@ -33,6 +33,8 @@ export const IPC = {
   LCU_GET_STATUS: 'lcu:getStatus',
   CHAMPIONS_GET: 'champions:get',
   APP_GET_SNAPSHOT: 'app:getSnapshot',
+  APP_GET_SETTINGS: 'app:getSettings',
+  APP_SET_OVERLAY_SETTINGS: 'app:setOverlaySettings',
   GET_RECOMMENDATIONS: 'recommendations:get',
   GET_BUILD: 'build:get'
 } as const
@@ -52,6 +54,8 @@ export const IPC_INVOKE_CHANNELS = [
   IPC.LCU_GET_STATUS,
   IPC.CHAMPIONS_GET,
   IPC.APP_GET_SNAPSHOT,
+  IPC.APP_GET_SETTINGS,
+  IPC.APP_SET_OVERLAY_SETTINGS,
   IPC.GET_RECOMMENDATIONS,
   IPC.GET_BUILD
 ] as const

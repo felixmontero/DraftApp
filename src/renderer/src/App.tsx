@@ -3,7 +3,7 @@ import StatusBar from './components/StatusBar'
 import DraftBoard from './components/DraftBoard'
 import RecommendationPanel from './components/RecommendationPanel'
 import { CURRENT_PATCH, IPC } from '@shared/constants'
-import type { ConnectionStatus, DraftState, Recommendation } from '@shared/types'
+import type { ConnectionStatus, DraftState, Recommendation, UserSettings } from '@shared/types'
 
 export default function App(): React.JSX.Element {
   const [connection, setConnection] = useState<ConnectionStatus>('disconnected')
@@ -19,6 +19,11 @@ export default function App(): React.JSX.Element {
 
     window.api.invoke('lcu:getStatus').then((status: unknown) => {
       if (active && status === 'connected') setConnection('connected')
+    })
+
+    window.api.invoke(IPC.APP_GET_SETTINGS).then((settings: unknown) => {
+      if (!active) return
+      setCompactMode(Boolean((settings as UserSettings).overlay?.compactMode))
     })
 
     const unsubscribers = [
@@ -104,7 +109,13 @@ export default function App(): React.JSX.Element {
             </svg>
           </button>
           <button
-            onClick={() => setCompactMode(value => !value)}
+            onClick={() => {
+              setCompactMode(value => {
+                const next = !value
+                void window.api.invoke(IPC.APP_SET_OVERLAY_SETTINGS, { compactMode: next })
+                return next
+              })
+            }}
             className={`w-6 h-6 rounded flex items-center justify-center transition-colors ${
               compactMode
                 ? 'text-lol-gold-light bg-lol-gold/10'
@@ -132,7 +143,7 @@ export default function App(): React.JSX.Element {
 
       <StatusBar connection={connection} draft={draft} />
 
-      <div className={`flex flex-row flex-1 overflow-hidden p-3 gap-3 ${compactMode ? 'p-2' : ''}`}>
+      <div className={`flex flex-row flex-1 overflow-hidden ${compactMode ? 'p-2 gap-2' : 'p-3 gap-3'}`}>
         {!compactMode && (
           <DraftBoard draft={draft} patch={patch} championMap={championMap} />
         )}
