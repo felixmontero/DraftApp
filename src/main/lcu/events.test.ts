@@ -1,38 +1,16 @@
 import { describe, expect, it } from 'vitest'
+import { readFileSync } from 'node:fs'
 import type { LcuSession } from './types'
 import { parseSession } from './events'
 
-function fixtureSession(overrides: Partial<LcuSession> = {}): LcuSession {
-  return {
-    localPlayerCellId: 2,
-    myTeam: [
-      { cellId: 1, championId: 0, assignedPosition: 'top', summonerId: 101 },
-      { cellId: 2, championId: 222, assignedPosition: 'bottom', summonerId: 102 }
-    ],
-    theirTeam: [
-      { cellId: 6, championId: 157, assignedPosition: 'middle', summonerId: 201 },
-      { cellId: 7, championId: 0, assignedPosition: 'support', summonerId: 202 }
-    ],
-    actions: [
-      [
-        { id: 11, type: 'ban', championId: 0, completed: false, isAllyAction: true, isInProgress: true },
-        { id: 12, type: 'ban', championId: 0, completed: false, isAllyAction: false, isInProgress: false }
-      ],
-      [
-        { id: 21, type: 'pick', championId: 222, completed: true, isAllyAction: true, isInProgress: false }
-      ]
-    ],
-    timer: {
-      adjustedTimeLeftInPhase: 27000,
-      phase: 'BAN_PICK'
-    },
-    ...overrides
-  }
+function loadFixture(name: string): LcuSession {
+  const fixtureUrl = new URL(`./__fixtures__/${name}.json`, import.meta.url)
+  return JSON.parse(readFileSync(fixtureUrl, 'utf8')) as LcuSession
 }
 
 describe('parseSession', () => {
   it('flattens actions and keeps active draft context', () => {
-    const parsed = parseSession(fixtureSession())
+    const parsed = parseSession(loadFixture('champ-select-ban-turn'))
 
     expect(parsed.localPlayerCellId).toBe(2)
     expect(parsed.phase).toBe('BAN_PICK')
@@ -47,7 +25,7 @@ describe('parseSession', () => {
   })
 
   it('normalizes support role to utility', () => {
-    const parsed = parseSession(fixtureSession())
+    const parsed = parseSession(loadFixture('champ-select-ban-turn'))
 
     expect(parsed.theirTeam[1].assignedPosition).toBe('utility')
   })
