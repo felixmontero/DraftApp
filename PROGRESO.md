@@ -51,7 +51,7 @@
 
 - `StatusBar` con estado de conexion y champion select.
 - `DraftBoard` con picks, bans, timer y rol.
-- Click en tu campeon del draft para reabrir build y runas.
+- Click en campeones aliados del draft para reabrir build y runas cuando haya rol.
 - `RecommendationPanel` contextual para picks, bans y turno rival.
 - Seleccion fijada para no perder runas cuando el campeon elegido desaparece de recomendaciones.
 - `BuildPanel` con items y runas.
@@ -73,7 +73,7 @@
 ## Siguiente Paso Recomendado
 
 1. Probar con champion selects reales y guardar fixtures anonimizados.
-2. Anadir click en cualquier aliado del draft para consultar builds cuando haya datos de rol.
-3. Separar configuracion visual del overlay en una pantalla o menu de ajustes.
-4. Preparar instalador Windows completo (`dist:win`) y notas de release interno.
-5. Empezar un dataset pequeno de evaluacion para medir si las recomendaciones realmente aciertan en drafts reales.
+2. Separar configuracion visual del overlay en una pantalla o menu de ajustes.
+3. Preparar instalador Windows completo (`dist:win`) y notas de release interno.
+4. Empezar un dataset pequeno de evaluacion para medir si las recomendaciones realmente aciertan en drafts reales.
+5. Anadir historial local de drafts para revisar recomendaciones despues de la partida.

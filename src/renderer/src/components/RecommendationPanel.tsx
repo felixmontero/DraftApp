@@ -63,6 +63,8 @@ export default function RecommendationPanel({ draft, patch, recommendations, loa
   const prevDraftRef = React.useRef<DraftState | null>(null)
   React.useEffect(() => {
     if (draft !== null && prevDraftRef.current === null) {
+      buildRequestRef.current += 1
+      selectedKeyRef.current = null
       setSelectedKey(null)
       setSelectedRecommendation(null)
       setSelectedBuild(null)
@@ -73,6 +75,7 @@ export default function RecommendationPanel({ draft, patch, recommendations, loa
 
   React.useEffect(() => {
     if (!focusedChampion) return
+    selectedKeyRef.current = focusedChampion.key
     setSelectedKey(focusedChampion.key)
     setSelectedName(focusedChampion.name)
     setSelectedRecommendation(null)
@@ -85,6 +88,8 @@ export default function RecommendationPanel({ draft, patch, recommendations, loa
     // Usar refs para evitar closures obsoletas — esto evita que el callback
     // se recree en cada render, lo que causa re-renders innecesarios en los hijos
     if (selectedKeyRef.current === key) {
+      buildRequestRef.current += 1
+      selectedKeyRef.current = null
       setSelectedKey(null)
       setSelectedRecommendation(null)
       setSelectedBuild(null)
@@ -92,6 +97,7 @@ export default function RecommendationPanel({ draft, patch, recommendations, loa
       return
     }
     if (!roleRef.current) return
+    selectedKeyRef.current = key
     setSelectedKey(key)
     setSelectedName(name)
     setSelectedRecommendation(rec)

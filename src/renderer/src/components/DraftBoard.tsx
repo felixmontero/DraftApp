@@ -65,7 +65,7 @@ function PickSlot({
   const hasChamp = player.championId > 0
   const champName = hasChamp ? (championMap[player.championId] ?? `#${player.championId}`) : null
   const icon = championIcon(player.championId)
-  const clickable = Boolean(isLocal && hasChamp && champName && player.assignedPosition)
+  const clickable = Boolean(side === 'ally' && hasChamp && champName && player.assignedPosition)
   const handleClick = (): void => {
     if (!clickable || !champName) return
     onFocusChampion?.({
@@ -110,9 +110,11 @@ function PickSlot({
       }`}>
         {champName ?? roleLabel}
       </span>
-      {/* Indicador "tú" */}
       {isLocal && (
         <span className="text-lol-gold text-sm ml-auto shrink-0">▶</span>
+      )}
+      {!isLocal && clickable && (
+        <span className="ml-auto shrink-0 text-[10px] font-bold uppercase text-lol-text-dim">Build</span>
       )}
     </button>
   )
