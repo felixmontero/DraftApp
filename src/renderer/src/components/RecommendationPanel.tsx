@@ -32,6 +32,7 @@ export default function RecommendationPanel({ draft, patch, recommendations, loa
 
   const [selectedKey,  setSelectedKey]  = useState<string | null>(null)
   const [selectedName, setSelectedName] = useState<string>('')
+  const [selectedRecommendation, setSelectedRecommendation] = useState<Recommendation | null>(null)
   const [selectedBuild, setSelectedBuild] = useState<Build | null>(null)
   const [buildLoading, setBuildLoading] = useState(false)
 
@@ -49,34 +50,62 @@ export default function RecommendationPanel({ draft, patch, recommendations, loa
   React.useEffect(() => {
     if (draft !== null && prevDraftRef.current === null) {
       setSelectedKey(null)
+      setSelectedRecommendation(null)
       setSelectedBuild(null)
     }
     prevDraftRef.current = draft
   }, [draft])
 
-  const handleSelect = useCallback(async (key: string, name: string) => {
+  const handleSelect = useCallback(async (rec: Recommendation) => {
+    const { key, name } = rec.champion
     // Usar refs para evitar closures obsoletas — esto evita que el callback
     // se recree en cada render, lo que causa re-renders innecesarios en los hijos
     if (selectedKeyRef.current === key) {
       setSelectedKey(null)
+      setSelectedRecommendation(null)
       setSelectedBuild(null)
       return
     }
     if (!roleRef.current) return
     setSelectedKey(key)
     setSelectedName(name)
+    setSelectedRecommendation(rec)
     setSelectedBuild(null)
     if (intentRef.current === 'ban') return
     setBuildLoading(true)
     try {
       const build = await window.api.invoke(IPC.GET_BUILD, { champKey: key, role: roleRef.current }) as Build | null
-      setSelectedBuild(build)
+      if (selectedKeyRef.current === key) setSelectedBuild(build)
     } finally {
-      setBuildLoading(false)
+      if (selectedKeyRef.current === key) setBuildLoading(false)
     }
   }, [])  // Sin dependencias — usa refs
 
   const inDraft = draft !== null
+  const visibleRecommendations = compact ? recommendations.slice(0, 3) : recommendations
+  const selectedStillVisible = selectedKey
+    ? visibleRecommendations.some(rec => rec.champion.key === selectedKey)
+    : false
+  const showPinnedSelection = Boolean(
+    !compact && selectedRecommendation && selectedKey && !selectedStillVisible && (buildLoading || selectedBuild)
+  )
+
+  const renderBuildState = (): React.JSX.Element => (
+    buildLoading
+      ? (
+        <div className="flex items-center gap-2 px-3 py-2 text-lol-text-dim text-xs">
+          <div className="w-4 h-4 border border-lol-gold/30 border-t-lol-gold rounded-full animate-spin" />
+          Cargando build…
+        </div>
+      )
+      : selectedBuild
+        ? <BuildPanel build={selectedBuild} championName={selectedName} />
+        : (
+          <p className="text-lol-text-dim text-xs px-3 py-1">
+            Build no disponible para este campeón/rol
+          </p>
+        )
+  )
 
   return (
     <div className="flex flex-col flex-1 overflow-hidden bg-lol-surface border border-lol-border rounded-md">
@@ -109,32 +138,35 @@ export default function RecommendationPanel({ draft, patch, recommendations, loa
           <p className="text-lol-text-dim text-xs mt-1">Obteniendo datos de Lolalytics</p>
         </div>
 
-      ) : recommendations.length > 0 ? (
+      ) : recommendations.length > 0 || showPinnedSelection ? (
         <div className="flex flex-col overflow-y-auto p-2 gap-1">
-          {(compact ? recommendations.slice(0, 3) : recommendations).map((rec, i) => (
+          {showPinnedSelection && selectedRecommendation && (
+            <div className="mb-1 rounded-md border border-lol-gold/40 bg-lol-gold/5 p-1">
+              <div className="px-2 pb-1 text-[10px] font-bold uppercase tracking-wider text-lol-gold-light">
+                Selección fijada
+              </div>
+              <ChampionCard
+                rec={selectedRecommendation}
+                rank={0}
+                intent="pick"
+                selected
+                onClick={() => handleSelect(selectedRecommendation)}
+              />
+              {renderBuildState()}
+            </div>
+          )}
+
+          {visibleRecommendations.map((rec, i) => (
             <React.Fragment key={rec.champion.id}>
               <ChampionCard
                 rec={rec}
                 rank={i + 1}
                 intent={recommendationIntent}
                 selected={selectedKey === rec.champion.key}
-                onClick={() => handleSelect(rec.champion.key, rec.champion.name)}
+                onClick={() => handleSelect(rec)}
               />
               {!compact && selectedKey === rec.champion.key && (
-                buildLoading
-                  ? (
-                    <div className="flex items-center gap-2 px-3 py-2 text-lol-text-dim text-xs">
-                      <div className="w-4 h-4 border border-lol-gold/30 border-t-lol-gold rounded-full animate-spin" />
-                      Cargando build…
-                    </div>
-                  )
-                  : selectedBuild
-                    ? <BuildPanel build={selectedBuild} championName={selectedName} />
-                    : (
-                      <p className="text-lol-text-dim text-xs px-3 py-1">
-                        Build no disponible para este campeón/rol
-                      </p>
-                    )
+                renderBuildState()
               )}
             </React.Fragment>
           ))}

@@ -53,7 +53,7 @@ export default function ChampionCard({ rec, rank, intent, selected, onClick }: P
     >
       {/* Rank */}
       <span className={`text-xs w-4 text-center shrink-0 ${RANK_STYLE[rank] ?? 'text-lol-text-dim'}`}>
-        {rank}
+        {rank > 0 ? rank : ''}
       </span>
 
       {/* Icon */}
