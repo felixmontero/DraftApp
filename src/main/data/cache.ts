@@ -15,12 +15,17 @@ export const cache = {
     store.set(key, value)
   },
 
-  /** Elimina todas las entradas cuya clave no termine en `:${currentPatch}` */
+  /** Elimina todas las entradas versionadas que no pertenecen al parche actual. */
   evictOldPatch(currentPatch: string): void {
     const all = store.store as Record<string, unknown>
+    const [major, minor] = currentPatch.split('.')
+    const shortPatch = major && minor ? `${major}.${minor}` : currentPatch
+    const currentPatches = new Set([currentPatch, shortPatch])
     let evicted = 0
     for (const key of Object.keys(all)) {
-      if (key.includes(':') && !key.endsWith(`:${currentPatch}`)) {
+      const parts = key.split(':')
+      const patch = parts[parts.length - 1]
+      if (key.includes(':') && !currentPatches.has(patch)) {
         store.delete(key)
         evicted++
       }

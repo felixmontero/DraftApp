@@ -122,6 +122,7 @@ export interface FocusedChampion {
   key: string
   name: string
   role: Role
+  source?: 'auto' | 'manual'
 }
 
 export interface UserSettings {

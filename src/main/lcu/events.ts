@@ -152,12 +152,15 @@ export function parseChampSelectMessage(raw: string): ParsedChampSelectMessage {
   // Formato WAMP: [tipo, evento, datos]
   if (!Array.isArray(msg) || msg[0] !== 8) return { type: 'ignore' }
 
-  const eventName = msg[1] as string
+  const eventName = msg[1]
+  if (typeof eventName !== 'string') return { type: 'ignore' }
   if (!eventName.includes('lol-champ-select')) return { type: 'ignore' }
 
-  const payload = msg[2] as { data: LcuSession | null; eventType: string }
+  const payload = msg[2] as { data?: LcuSession | null; eventType?: string } | undefined
 
-  if (!payload?.data || payload.eventType === 'Delete') return { type: 'end' }
+  if (!payload || !('data' in payload)) return { type: 'ignore' }
+  if (payload.data === null || payload.eventType === 'Delete') return { type: 'end' }
+  if (!payload.data) return { type: 'ignore' }
 
   return { type: 'update', state: parseSession(payload.data) }
 }

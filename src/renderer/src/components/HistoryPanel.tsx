@@ -7,6 +7,8 @@ export default function HistoryPanel(): React.JSX.Element {
   const [history, setHistory] = useState<DraftHistoryEntry[]>([])
   const [loading, setLoading] = useState(true)
   const [selectedEntry, setSelectedEntry] = useState<DraftHistoryEntry | null>(null)
+  const [pendingClear, setPendingClear] = useState(false)
+  const [notice, setNotice] = useState<string | null>(null)
 
   const loadHistory = async (): Promise<void> => {
     setLoading(true)
@@ -22,17 +24,34 @@ export default function HistoryPanel(): React.JSX.Element {
     void loadHistory()
   }, [])
 
+  useEffect(() => {
+    if (!pendingClear) return
+    const timeout = window.setTimeout(() => {
+      setPendingClear(false)
+      setNotice(null)
+    }, 5000)
+    return () => window.clearTimeout(timeout)
+  }, [pendingClear])
+
   const handleDelete = async (id: string, e: React.MouseEvent): Promise<void> => {
     e.stopPropagation()
     await window.api.invoke(IPC.HISTORY_DELETE, id)
     if (selectedEntry?.id === id) setSelectedEntry(null)
+    setPendingClear(false)
+    setNotice('Draft eliminado')
     void loadHistory()
   }
 
   const handleClear = async (): Promise<void> => {
-    if (!confirm('¿Borrar todo el historial?')) return
+    if (!pendingClear) {
+      setPendingClear(true)
+      setNotice('Pulsa otra vez para confirmar')
+      return
+    }
     await window.api.invoke(IPC.HISTORY_CLEAR)
     setSelectedEntry(null)
+    setPendingClear(false)
+    setNotice('Historial limpiado')
     void loadHistory()
   }
 
@@ -53,6 +72,7 @@ export default function HistoryPanel(): React.JSX.Element {
         </svg>
         <p className="text-sm font-semibold text-lol-text">Historial vacío</p>
         <p className="text-[11px] mt-1">Tus drafts aparecerán aquí automáticamente al finalizar.</p>
+        {notice && <p className="mt-3 text-[10px] font-semibold uppercase text-lol-green">{notice}</p>}
       </div>
     )
   }
@@ -117,7 +137,6 @@ export default function HistoryPanel(): React.JSX.Element {
                 rank={i + 1}
                 intent="pick"
                 selected={false}
-                onClick={() => {}}
               />
             ))}
           </div>
@@ -132,21 +151,36 @@ export default function HistoryPanel(): React.JSX.Element {
         <span className="text-xs font-bold uppercase text-lol-text">Historial de drafts</span>
         <button
           onClick={handleClear}
-          className="text-[10px] uppercase font-bold text-lol-red hover:text-white transition-colors"
+          className={`text-[10px] uppercase font-bold transition-colors ${
+            pendingClear ? 'text-white' : 'text-lol-red hover:text-white'
+          }`}
         >
-          Limpiar
+          {pendingClear ? 'Confirmar' : 'Limpiar'}
         </button>
       </div>
 
       <div className="flex-1 overflow-y-auto p-2 space-y-1.5">
+        {notice && (
+          <div className="app-card px-2 py-1.5 text-[10px] font-semibold uppercase text-lol-green">
+            {notice}
+          </div>
+        )}
         {history.map(entry => {
           const localPlayer = entry.draft.myTeam.find(p => p.cellId === entry.draft.localPlayerCellId)
           const myChampId = localPlayer?.championId || 0
 
           return (
-            <button
+            <div
               key={entry.id}
+              role="button"
+              tabIndex={0}
               onClick={() => setSelectedEntry(entry)}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter' || event.key === ' ') {
+                  event.preventDefault()
+                  setSelectedEntry(entry)
+                }
+              }}
               className="app-card app-card-hover w-full p-2 flex items-center gap-3 text-left group"
             >
               <div className="w-8 h-8 rounded border border-lol-border overflow-hidden bg-lol-dark shrink-0">
@@ -170,7 +204,8 @@ export default function HistoryPanel(): React.JSX.Element {
                 </div>
               </div>
 
-              <div
+              <button
+                type="button"
                 onClick={(e) => { void handleDelete(entry.id, e) }}
                 className="w-6 h-6 rounded flex items-center justify-center text-lol-text-dim hover:text-lol-red hover:bg-lol-red/10 opacity-0 group-hover:opacity-100 transition-all"
                 title="Eliminar"
@@ -178,8 +213,8 @@ export default function HistoryPanel(): React.JSX.Element {
                 <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                 </svg>
-              </div>
-            </button>
+              </button>
+            </div>
           )
         })}
       </div>

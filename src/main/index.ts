@@ -12,9 +12,9 @@ import { LcuClient } from './lcu/connector'
 import { LcuEvents } from './lcu/events'
 import { IPC } from '@shared/constants'
 import { fetchLatestPatch, fetchChampionList, buildIdMap, fetchRuneIconMap } from './data/datadragon'
-import { fetchChampionBuild, toShortPatch } from './data/lolalytics'
+import { fetchChampionBuild } from './data/lolalytics'
 import { cache } from './data/cache'
-import { getSettings, updateOverlaySettings } from './data/settings'
+import { DEFAULT_WINDOW_BOUNDS, MIN_WINDOW_BOUNDS, getSettings, updateOverlaySettings } from './data/settings'
 import { saveDraftToHistory, getHistory, deleteHistoryEntry, clearHistory } from './data/history'
 import { computeRecommendations } from './engine/recommendations'
 import type { DraftState, Recommendation } from '@shared/types'
@@ -121,7 +121,18 @@ async function updateRecommendations(draft: DraftState | null): Promise<void> {
       }
 
       latestRecommendations = recs
-      const fingerprint = recs.map(r => `${r.champion.key}:${Math.round(r.score)}`).join(',')
+      const fingerprint = [
+        currentDraftFingerprint,
+        recs.map(r => [
+          r.champion.key,
+          Math.round(r.score * 10) / 10,
+          r.reasons.join('|'),
+          r.breakdown.winRate,
+          r.breakdown.counterScore,
+          r.breakdown.synergyScore,
+          r.breakdown.tierBonus
+        ].join(':')).join(',')
+      ].join('::')
       if (fingerprint !== lastRecsFingerprint) {
         lastRecsFingerprint = fingerprint
         mainWindow?.webContents.send(IPC.RECOMMENDATIONS_UPDATE, recs)
@@ -150,7 +161,7 @@ async function checkForNewPatch(): Promise<void> {
   console.log(`[Patch] Nuevo parche detectado: ${currentPatch} → ${latestPatch}`)
   currentPatch = latestPatch
   dataReady = false
-  cache.evictOldPatch(toShortPatch(currentPatch))
+  cache.evictOldPatch(currentPatch)
 
   ;[cachedChampions, cachedRuneMap] = await Promise.all([
     fetchChampionList(currentPatch),
@@ -231,8 +242,8 @@ function createWindow(): void {
     y: bounds.y,
     width: bounds.width,
     height: bounds.height,
-    minWidth: 360,
-    minHeight: 420,
+    minWidth: MIN_WINDOW_BOUNDS.width,
+    minHeight: MIN_WINDOW_BOUNDS.height,
     show: false,
     frame: false,
     transparent: true,
@@ -347,9 +358,10 @@ function setupDdragonProtocol(): void {
 ipcMain.handle(IPC.WINDOW_MINIMIZE, () => mainWindow?.minimize())
 ipcMain.handle(IPC.WINDOW_CLOSE,    () => mainWindow?.close())
 ipcMain.handle(IPC.WINDOW_RESET_BOUNDS, () => {
-  const windowBounds = { width: 390, height: 540 }
+  const windowBounds = { ...DEFAULT_WINDOW_BOUNDS }
   mainWindow?.setBounds(windowBounds)
-  return updateOverlaySettings({ windowBounds })
+  mainWindow?.center()
+  return updateOverlaySettings({ compactMode: false, windowBounds })
 })
 
 ipcMain.handle(IPC.LCU_GET_STATUS,  () => lcuConnected ? 'connected' : 'disconnected')
@@ -388,7 +400,7 @@ app.whenReady().then(async () => {
 
   // Parche → evict caché obsoleta → campeones + runas
   currentPatch      = await fetchLatestPatch()
-  cache.evictOldPatch(toShortPatch(currentPatch))
+  cache.evictOldPatch(currentPatch)
   cache.clearBuildsAndStats()  // Invalidar builds/stats cacheados con datos viejos del scraper
   ;[cachedChampions, cachedRuneMap] = await Promise.all([
     fetchChampionList(currentPatch),

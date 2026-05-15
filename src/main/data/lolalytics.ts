@@ -37,6 +37,7 @@ const RUNE_PATHS: Record<number, string> = {
 
 export function toShortPatch(patch: string): string {
   const [major, minor] = patch.split('.')
+  if (!major || !minor) return patch
   return `${major}.${minor}`
 }
 
@@ -173,6 +174,14 @@ function pct(text: string): number | null {
   return m ? parseFloat(m[1]) / 100 : null
 }
 
+function explicitStatPct(text: string, label: string): number | null {
+  const escapedLabel = label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  const before = text.match(new RegExp(`([\\d.]+)\\s*%\\s*${escapedLabel}`, 'i'))
+  if (before) return parseFloat(before[1]) / 100
+  const after = text.match(new RegExp(`${escapedLabel}\\s*([\\d.]+)\\s*%`, 'i'))
+  return after ? parseFloat(after[1]) / 100 : null
+}
+
 // ─── HTML scraping (fallback) ─────────────────────────────────────────────────
 export function scrapeHtml(html: string): {
   winRate: number; pickRate: number; banRate: number; tier: Tier
@@ -182,6 +191,11 @@ export function scrapeHtml(html: string): {
   const $ = cheerio.load(html)
 
   let winRate = 0, pickRate = 0, banRate = 0
+
+  const bodyText = $('body').text()
+  winRate = explicitStatPct(bodyText, 'Win Rate') ?? 0
+  pickRate = explicitStatPct(bodyText, 'Pick Rate') ?? 0
+  banRate = explicitStatPct(bodyText, 'Ban Rate') ?? 0
 
   // Method 1: look for stat label → adjacent sibling value
   $('div, span').each((_, el) => {
@@ -562,8 +576,8 @@ export async function fetchEnemyCounterData(
 
   for (const url of urls) {
     const result = await fetchHtml(url)
-    if (!result || !result.html) break
-    if (result.status !== 200) continue
+    if (!result) break
+    if (result.status !== 200 || !result.html) continue
     matchups = extractMatchupsFromJsonScripts(result.html)
     if (matchups.size === 0) {
       matchups = scrapeCountersHtml(result.html, enemyKey)

@@ -68,4 +68,10 @@ describe('parseChampSelectMessage', () => {
 
     expect(parsed.type).toBe('end')
   })
+
+  it('ignores malformed WAMP messages without throwing', () => {
+    expect(parseChampSelectMessage(JSON.stringify([8]))).toEqual({ type: 'ignore' })
+    expect(parseChampSelectMessage(JSON.stringify([8, null, {}]))).toEqual({ type: 'ignore' })
+    expect(parseChampSelectMessage(JSON.stringify([8, 'OnJsonApiEvent_lol-champ-select_v1_session', {}]))).toEqual({ type: 'ignore' })
+  })
 })

@@ -27,14 +27,34 @@ function entry(id: string, timestamp = Date.now()): DraftHistoryEntry {
     timestamp,
     patch: '16.7.1',
     draft: {
-      phase: 'pick',
       localPlayerCellId: 0,
-      myTeam: [],
+      myTeam: [
+        { cellId: 0, championId: 103, assignedPosition: 'middle', summonerId: 10 }
+      ],
       theirTeam: [],
-      bans: { myTeam: [], theirTeam: [] },
-      actions: []
+      actions: [
+        { id: 1, type: 'pick', championId: 103, completed: true, isAllyAction: true, isInProgress: false }
+      ],
+      phase: 'BAN_PICK',
+      timeLeftMs: 10000
     },
     recommendations: []
+  }
+}
+
+function emptyEntry(id: string): DraftHistoryEntry {
+  return {
+    ...entry(id),
+    draft: {
+      localPlayerCellId: 0,
+      myTeam: [
+        { cellId: 0, championId: 0, assignedPosition: 'middle', summonerId: 10 }
+      ],
+      theirTeam: [],
+      actions: [],
+      phase: 'BAN_PICK',
+      timeLeftMs: 10000
+    }
   }
 }
 
@@ -64,6 +84,34 @@ describe('draft history storage', () => {
 
     expect(getHistory()).toHaveLength(1)
     expect(getHistory()[0].timestamp).toBe(1)
+  })
+
+  it('does not store empty drafts without selected champions', async () => {
+    const { getHistory, saveDraftToHistory } = await import('./history')
+
+    saveDraftToHistory(emptyEntry('empty-draft'))
+
+    expect(getHistory()).toEqual([])
+  })
+
+  it('does not store drafts that only contain hovered champions', async () => {
+    const { getHistory, saveDraftToHistory } = await import('./history')
+
+    saveDraftToHistory({
+      ...emptyEntry('hover-draft'),
+      draft: {
+        localPlayerCellId: 0,
+        myTeam: [
+          { cellId: 0, championId: 103, assignedPosition: 'middle', summonerId: 10 }
+        ],
+        theirTeam: [],
+        actions: [],
+        phase: 'BAN_PICK',
+        timeLeftMs: 10000
+      }
+    })
+
+    expect(getHistory()).toEqual([])
   })
 
   it('deletes individual entries and clears all history', async () => {

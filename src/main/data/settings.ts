@@ -1,21 +1,26 @@
 import Store from 'electron-store'
 import type { OverlaySettings, UserSettings } from '@shared/types'
 
-const CURRENT_WINDOW_BOUNDS = {
-  width: 390,
-  height: 540
-}
-
-const LEGACY_DEFAULT_WINDOW_BOUNDS = {
+export const DEFAULT_WINDOW_BOUNDS = {
   width: 940,
   height: 580
+}
+
+export const MIN_WINDOW_BOUNDS = {
+  width: 760,
+  height: 520
+}
+
+const OBSOLETE_COMPACT_DEFAULT_BOUNDS = {
+  width: 390,
+  height: 540
 }
 
 const DEFAULT_SETTINGS: UserSettings = {
   overlay: {
     compactMode: false,
     alwaysOnTop: true,
-    windowBounds: CURRENT_WINDOW_BOUNDS
+    windowBounds: DEFAULT_WINDOW_BOUNDS
   }
 }
 
@@ -27,22 +32,27 @@ const store = new Store<UserSettings>({
 export function getSettings(): UserSettings {
   const overlay = store.get('overlay', DEFAULT_SETTINGS.overlay)
   const windowBounds = {
-    ...DEFAULT_SETTINGS.overlay.windowBounds,
+    ...DEFAULT_WINDOW_BOUNDS,
     ...overlay.windowBounds
   }
 
-  const usesLegacyDefaultBounds =
-    windowBounds.width === LEGACY_DEFAULT_WINDOW_BOUNDS.width &&
-    windowBounds.height === LEGACY_DEFAULT_WINDOW_BOUNDS.height
+  const usesObsoleteCompactDefault =
+    !overlay.compactMode &&
+    windowBounds.width === OBSOLETE_COMPACT_DEFAULT_BOUNDS.width &&
+    windowBounds.height === OBSOLETE_COMPACT_DEFAULT_BOUNDS.height
 
-  const normalizedWindowBounds = usesLegacyDefaultBounds
+  const normalizedWindowBounds = usesObsoleteCompactDefault
     ? {
       ...windowBounds,
-      ...CURRENT_WINDOW_BOUNDS
+      ...DEFAULT_WINDOW_BOUNDS
     }
-    : windowBounds
+    : {
+      ...windowBounds,
+      width: Math.max(windowBounds.width, MIN_WINDOW_BOUNDS.width),
+      height: Math.max(windowBounds.height, MIN_WINDOW_BOUNDS.height)
+    }
 
-  if (usesLegacyDefaultBounds) {
+  if (usesObsoleteCompactDefault) {
     store.set('overlay.windowBounds', normalizedWindowBounds)
   }
 

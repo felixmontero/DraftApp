@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 
@@ -7,10 +7,14 @@ vi.mock('electron', () => ({
   net: { fetch: vi.fn() }
 }))
 
-import { extractFromJsonScripts, scrapeHtml } from './lolalytics'
+import { extractFromJsonScripts, fetchEnemyCounterData, scrapeHtml, toShortPatch } from './lolalytics'
 
 describe('Lolalytics Scraper (Qwik Adaptation)', () => {
   const akaliHtml = readFileSync(resolve(__dirname, '../../../scratch/akali.html'), 'utf-8')
+
+  beforeEach(async () => {
+    vi.mocked((await import('electron')).net.fetch).mockReset()
+  })
 
   it('fails to extract structured data from Qwik JSON (known limitation)', () => {
     // Verificamos que extractFromJsonScripts no encuentra nada útil en el JSON de Qwik
@@ -30,6 +34,17 @@ describe('Lolalytics Scraper (Qwik Adaptation)', () => {
     expect(res.winRate).toBe(0.4965)
   })
 
+  it('prioritizes explicit Win Rate text over generic percentages', () => {
+    const res = scrapeHtml(`
+      <html><body>
+        <div>49.65% Average Emerald+</div>
+        <section><strong>56.34% Win Rate</strong></section>
+      </body></html>
+    `)
+
+    expect(res.winRate).toBe(0.5634)
+  })
+
   it('extracts items from Qwik HTML', () => {
     const res = scrapeHtml(akaliHtml)
     expect(res.items.length).toBeGreaterThanOrEqual(3)
@@ -47,5 +62,37 @@ describe('Lolalytics Scraper (Qwik Adaptation)', () => {
     expect(res.secondaryRunes.length).toBe(2)
     expect([8000, 8100, 8200, 8300, 8400]).toContain(res.primaryPath)
     expect([8000, 8100, 8200, 8300, 8400]).toContain(res.secondaryPath)
+  })
+
+  it('tries the generic counters URL when lane-specific counters have no HTML', async () => {
+    const fetchMock = vi.mocked((await import('electron')).net.fetch)
+    const enemyKey = `Counter${Date.now()}`
+    fetchMock
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 404,
+        text: async () => ''
+      } as Response)
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        text: async () => `
+          <html><body>
+            <a href="/lol/${enemyKey.toLowerCase()}/vs/Ahri/">Ahri</a>
+            <div>54.0%</div>
+          </body></html>
+        `
+      } as Response)
+
+    const counters = await fetchEnemyCounterData(enemyKey, 'middle', '16.7.1')
+
+    expect(counters.get('Ahri')).toBeCloseTo(0.54)
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+  })
+
+  it('keeps short patches stable', () => {
+    expect(toShortPatch('16.7.1')).toBe('16.7')
+    expect(toShortPatch('16.7')).toBe('16.7')
+    expect(toShortPatch('live')).toBe('live')
   })
 })

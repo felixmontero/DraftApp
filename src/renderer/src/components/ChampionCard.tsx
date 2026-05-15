@@ -33,12 +33,15 @@ export default function ChampionCard({ rec, rank, intent, selected, onClick }: P
   const intentColor = intent === 'ban'
     ? 'border-lol-red/25 bg-lol-red-dim/30 text-lol-red'
     : 'border-lol-blue/25 bg-lol-blue-dim/20 text-lol-blue'
+  const interactive = Boolean(onClick)
+  const Element = interactive ? 'button' : 'div'
 
   return (
-    <button
+    <Element
       className={`
         app-card app-card-hover w-full min-h-[52px] px-2.5 py-2 text-left
         grid grid-cols-[32px_40px_minmax(0,1fr)_auto] items-center gap-2
+        ${interactive ? '' : 'cursor-default'}
         ${selected ? 'border-lol-border-bright bg-lol-surface2/30' : ''}
       `}
       onClick={onClick}
@@ -88,6 +91,6 @@ export default function ChampionCard({ rec, rank, intent, selected, onClick }: P
           <div className="text-xs font-bold text-white">{score}</div>
         </div>
       </div>
-    </button>
+    </Element>
   )
 }

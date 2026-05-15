@@ -2,14 +2,16 @@
 
 ## Estado General
 
+`PROYECTO.md` queda como referencia historica; este archivo y `RELEASE_CHECKLIST.md` son la fuente viva de estado y release.
+
 | Fase | Estado | Descripcion |
 |------|--------|-------------|
 | Fase 1 - Setup | Completada | Proyecto Electron + React + TypeScript funcionando |
 | Fase 2 - LCU | Completada | Conexion, polling y eventos de champion select |
 | Fase 3 - Datos | Completada | Data Dragon, Lolalytics, cache local y protocolo `ddragon://` |
 | Fase 4 - Engine | Completada | Scoring para picks/bans, counters y composicion |
-| Fase 5 - Overlay UI | En progreso avanzado | Overlay usable, modo compacto, builds/runas y draft en vivo |
-| Fase 6 - Distribucion | En progreso | `pack:win` genera release interno Windows |
+| Fase 5 - Overlay UI | En progreso avanzado | Overlay usable, modo compacto, historial, builds/runas y draft en vivo |
+| Fase 6 - Distribucion | En progreso | `pack:win` genera release interno Windows; checklist de release documentada |
 
 ---
 
@@ -58,6 +60,9 @@
 - `BuildPanel` con items y runas.
 - Vista compacta de runas para modo compacto.
 - Rediseno minimalista evolutivo con paneles sobrios, cards densas y jerarquia tipo analyst tool.
+- Historial local de drafts con almacenamiento anonimo, limite de entradas y acciones de borrado.
+- Auto-build del pick propio cuando el campeon local queda seleccionado.
+- Filtros para evitar guardar drafts vacios o basados solo en hovers.
 - Script `pack:win` para release interno en `release/win-unpacked/DraftApp.exe`.
 
 ---
@@ -75,7 +80,7 @@
 ## Siguiente Paso Recomendado
 
 1. Probar con champion selects reales y guardar fixtures anonimizados.
-2. Preparar instalador Windows completo (`dist:win`) y notas de release interno.
-3. Empezar un dataset pequeno de evaluacion para medir si las recomendaciones realmente aciertan en drafts reales.
-4. Anadir historial local de drafts para revisar recomendaciones despues de la partida.
+2. Ejecutar la checklist de release interno Windows en `RELEASE_CHECKLIST.md`.
+3. Preparar instalador Windows completo (`dist:win`) y notas de release interno.
+4. Empezar un dataset pequeno de evaluacion para medir si las recomendaciones realmente aciertan en drafts reales.
 5. Anadir pruebas de renderer para estados clave del overlay.

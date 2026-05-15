@@ -5,6 +5,7 @@ import HistoryPanel from './components/HistoryPanel'
 import SettingsPanel from './components/SettingsPanel'
 import { CURRENT_PATCH, IPC, ddPatchToDisplay } from '@shared/constants'
 import type { ConnectionStatus, DraftState, FocusedChampion, Recommendation, UserSettings } from '@shared/types'
+import { getLocalPickFocus, shouldApplyAutoFocus, shouldClearAutoFocus } from '@shared/draftSelection'
 
 type TabView = 'draft' | 'recommendations' | 'history'
 
@@ -21,6 +22,7 @@ export default function App(): React.JSX.Element {
   const [focusedChampion, setFocusedChampion] = useState<FocusedChampion | null>(null)
   const [activeView, setActiveView] = useState<TabView>('recommendations')
   const hadDraftRef = useRef(false)
+  const autoFocusedPickRef = useRef<string | null>(null)
 
   useEffect(() => {
     let active = true
@@ -41,6 +43,7 @@ export default function App(): React.JSX.Element {
 
       window.api.on(IPC.LCU_DISCONNECTED, () => {
         hadDraftRef.current = false
+        autoFocusedPickRef.current = null
         setConnection('disconnected')
         setDraft(null)
         setFocusedChampion(null)
@@ -62,6 +65,7 @@ export default function App(): React.JSX.Element {
           })
         } else {
           hadDraftRef.current = false
+          autoFocusedPickRef.current = null
           setDraft(null)
           setFocusedChampion(null)
           setConnection('connected')
@@ -96,6 +100,22 @@ export default function App(): React.JSX.Element {
     }
   }, [])
 
+  useEffect(() => {
+    if (!draft) return
+    if (focusedChampion?.source === 'manual') return
+
+    const focusCandidate = getLocalPickFocus(draft, championMap)
+    if (shouldClearAutoFocus(autoFocusedPickRef.current, focusCandidate)) {
+      autoFocusedPickRef.current = null
+      setFocusedChampion(null)
+      return
+    }
+    if (!shouldApplyAutoFocus(autoFocusedPickRef.current, focusCandidate)) return
+
+    autoFocusedPickRef.current = focusCandidate.fingerprint
+    setFocusedChampion(focusCandidate.champion)
+  }, [draft, championMap, focusedChampion?.source])
+
   const updateOverlaySettings = async (partial: Partial<UserSettings['overlay']>): Promise<void> => {
     const updated = await window.api.invoke(IPC.APP_SET_OVERLAY_SETTINGS, partial) as UserSettings
     setSettings(updated)
@@ -113,6 +133,9 @@ export default function App(): React.JSX.Element {
   const resetWindowBounds = async (): Promise<void> => {
     const updated = await window.api.invoke(IPC.WINDOW_RESET_BOUNDS) as UserSettings
     setSettings(updated)
+    setCompactMode(Boolean(updated.overlay.compactMode))
+    setActiveView('recommendations')
+    setSettingsOpen(false)
   }
 
   const patchDisplay = ddPatchToDisplay(patch)
@@ -121,7 +144,7 @@ export default function App(): React.JSX.Element {
     ? { label: 'Draft activo', color: 'bg-lol-green' }
     : connection === 'connected'
       ? { label: 'Conectado', color: 'bg-lol-blue' }
-      : { label: 'Sin conexion', color: 'bg-lol-text-dim' }
+      : { label: 'Sin conexión', color: 'bg-lol-text-dim' }
 
   return (
     <div className="relative flex flex-col h-screen panel-gradient border border-lol-border rounded-md overflow-hidden select-none">
@@ -141,7 +164,7 @@ export default function App(): React.JSX.Element {
         >
           <div className="hidden items-center gap-1.5 text-[10px] text-lol-text-dim sm:flex mr-1">
             <span className={`h-1.5 w-1.5 rounded-full ${connectionMeta.color}`} />
-            <span>Parche {patchDisplay}</span>
+            <span>{connectionMeta.label} - Parche {patchDisplay}</span>
           </div>
           <button
             onClick={() => window.api.invoke('window:minimize')}
@@ -233,6 +256,10 @@ export default function App(): React.JSX.Element {
           compactMode={compactMode}
           onToggleCompact={toggleCompactMode}
           onToggleAlwaysOnTop={toggleAlwaysOnTop}
+          onFocusRecommendations={() => {
+            setActiveView('recommendations')
+            setSettingsOpen(false)
+          }}
           onResetBounds={() => { void resetWindowBounds() }}
           onClose={() => setSettingsOpen(false)}
         />
@@ -245,7 +272,10 @@ export default function App(): React.JSX.Element {
             draft={draft}
             patch={patch}
             championMap={championMap}
-            onFocusChampion={setFocusedChampion}
+            onFocusChampion={(champion) => {
+              autoFocusedPickRef.current = null
+              setFocusedChampion({ ...champion, source: 'manual' })
+            }}
           />
         )}
         {!compactMode && activeView === 'history' && (

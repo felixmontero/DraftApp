@@ -6,6 +6,7 @@ interface Props {
   compactMode: boolean
   onToggleCompact: () => void
   onToggleAlwaysOnTop: () => void
+  onFocusRecommendations: () => void
   onResetBounds: () => void
   onClose: () => void
 }
@@ -42,6 +43,7 @@ export default function SettingsPanel({
   compactMode,
   onToggleCompact,
   onToggleAlwaysOnTop,
+  onFocusRecommendations,
   onResetBounds,
   onClose
 }: Props): React.JSX.Element {
@@ -66,6 +68,17 @@ export default function SettingsPanel({
       <div className="space-y-2 p-3">
         <ToggleRow label="Modo compacto" checked={compactMode} onClick={onToggleCompact} />
         <ToggleRow label="Siempre visible" checked={alwaysOnTop} onClick={onToggleAlwaysOnTop} />
+        <button
+          type="button"
+          onClick={onFocusRecommendations}
+          className="app-card app-card-hover flex w-full items-center justify-between px-3 py-2 text-xs font-semibold text-lol-text hover:text-white"
+        >
+          <span>Volver a Picks</span>
+          <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M3 8h10" />
+            <path d="M9 4l4 4-4 4" />
+          </svg>
+        </button>
         <button
           type="button"
           onClick={onResetBounds}

@@ -1,5 +1,6 @@
 import Store from 'electron-store'
 import type { DraftHistoryEntry } from '@shared/types'
+import { hasRelevantDraftPicks } from '@shared/draftSelection'
 
 interface HistoryData {
   entries: DraftHistoryEntry[]
@@ -17,6 +18,8 @@ export function getHistory(): DraftHistoryEntry[] {
 }
 
 export function saveDraftToHistory(entry: DraftHistoryEntry): void {
+  if (!hasRelevantDraftPicks(entry.draft)) return
+
   const entries = getHistory()
   // Evitar duplicados si por alguna razón se llama dos veces para el mismo draft
   if (entries.some(e => e.id === entry.id)) return

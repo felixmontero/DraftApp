@@ -33,16 +33,22 @@ export default function RecommendationPanel({ draft, patch, recommendations, loa
 
   const [selectedKey,  setSelectedKey]  = useState<string | null>(null)
   const [selectedName, setSelectedName] = useState<string>('')
+  const [selectedSource, setSelectedSource] = useState<FocusedChampion['source'] | null>(null)
   const [selectedRecommendation, setSelectedRecommendation] = useState<Recommendation | null>(null)
   const [selectedBuild, setSelectedBuild] = useState<Build | null>(null)
+  const [selectionNotice, setSelectionNotice] = useState<string | null>(null)
   const [buildLoading, setBuildLoading] = useState(false)
+  const [buildSettled, setBuildSettled] = useState(false)
 
   // Refs para evitar closures obsoletas en handleSelect
   const selectedKeyRef = React.useRef<string | null>(null)
+  const selectedSourceRef = React.useRef<FocusedChampion['source'] | null>(null)
   const roleRef = React.useRef<Role | undefined>(undefined)
   const intentRef = React.useRef<typeof recommendationIntent>(undefined)
   const buildRequestRef = React.useRef(0)
+  const focusedFingerprintRef = React.useRef<string | null>(null)
   selectedKeyRef.current = selectedKey
+  selectedSourceRef.current = selectedSource
   roleRef.current = role
   intentRef.current = recommendationIntent
 
@@ -50,11 +56,15 @@ export default function RecommendationPanel({ draft, patch, recommendations, loa
     const requestId = buildRequestRef.current + 1
     buildRequestRef.current = requestId
     setBuildLoading(true)
+    setBuildSettled(false)
     try {
       const build = await window.api.invoke(IPC.GET_BUILD, { champKey: key, role: targetRole }) as Build | null
       if (buildRequestRef.current === requestId && selectedKeyRef.current === key) setSelectedBuild(build)
     } finally {
-      if (buildRequestRef.current === requestId && selectedKeyRef.current === key) setBuildLoading(false)
+      if (buildRequestRef.current === requestId && selectedKeyRef.current === key) {
+        setBuildLoading(false)
+        setBuildSettled(true)
+      }
     }
   }, [])
 
@@ -66,20 +76,45 @@ export default function RecommendationPanel({ draft, patch, recommendations, loa
       buildRequestRef.current += 1
       selectedKeyRef.current = null
       setSelectedKey(null)
+      setSelectedSource(null)
       setSelectedRecommendation(null)
       setSelectedBuild(null)
+      setSelectionNotice(null)
       setBuildLoading(false)
+      setBuildSettled(false)
+      focusedFingerprintRef.current = null
     }
     prevDraftRef.current = draft
   }, [draft])
 
   React.useEffect(() => {
-    if (!focusedChampion) return
+    if (!focusedChampion) {
+      if (selectedSourceRef.current === 'auto') {
+        buildRequestRef.current += 1
+        selectedKeyRef.current = null
+        selectedSourceRef.current = null
+        setSelectedKey(null)
+        setSelectedSource(null)
+        setSelectedRecommendation(null)
+        setSelectedBuild(null)
+        setSelectionNotice(null)
+        setBuildLoading(false)
+        setBuildSettled(false)
+        focusedFingerprintRef.current = null
+      }
+      return
+    }
+    const focusedFingerprint = `${focusedChampion.key}:${focusedChampion.role}:${focusedChampion.source ?? 'manual'}`
+    if (focusedFingerprintRef.current === focusedFingerprint) return
+    focusedFingerprintRef.current = focusedFingerprint
     selectedKeyRef.current = focusedChampion.key
     setSelectedKey(focusedChampion.key)
     setSelectedName(focusedChampion.name)
+    setSelectedSource(focusedChampion.source ?? 'manual')
     setSelectedRecommendation(null)
     setSelectedBuild(null)
+    setSelectionNotice(null)
+    setBuildSettled(false)
     void loadBuild(focusedChampion.key, focusedChampion.role)
   }, [focusedChampion, loadBuild])
 
@@ -91,28 +126,49 @@ export default function RecommendationPanel({ draft, patch, recommendations, loa
       buildRequestRef.current += 1
       selectedKeyRef.current = null
       setSelectedKey(null)
+      setSelectedSource(null)
       setSelectedRecommendation(null)
       setSelectedBuild(null)
+      setSelectionNotice(null)
       setBuildLoading(false)
+      setBuildSettled(false)
+      focusedFingerprintRef.current = null
       return
     }
-    if (!roleRef.current) return
+    if (!roleRef.current) {
+      setSelectionNotice('Asigna un rol para ver la build')
+      return
+    }
     selectedKeyRef.current = key
     setSelectedKey(key)
     setSelectedName(name)
+    setSelectedSource('manual')
     setSelectedRecommendation(rec)
     setSelectedBuild(null)
-    if (intentRef.current === 'ban') return
+    setSelectionNotice(null)
+    setBuildSettled(false)
+    focusedFingerprintRef.current = null
+    if (intentRef.current === 'ban') {
+      setSelectionNotice('Los bans no tienen build asociada')
+      setBuildSettled(true)
+      return
+    }
     void loadBuild(key, roleRef.current)
   }, [loadBuild])  // Sin dependencias de estado; usa refs
 
   const inDraft = draft !== null
-  const visibleRecommendations = compact ? recommendations.slice(0, 3) : recommendations
-  const selectedStillVisible = selectedKey
+  const selectedIsAutoPick = selectedSource === 'auto'
+  const baseRecommendations = selectedIsAutoPick && selectedKey
+    ? recommendations.filter(rec => rec.champion.key !== selectedKey)
+    : recommendations
+  const visibleRecommendations = compact ? baseRecommendations.slice(0, 3) : baseRecommendations
+  const selectedStillVisible = selectedKey && !selectedIsAutoPick
     ? visibleRecommendations.some(rec => rec.champion.key === selectedKey)
     : false
+  const hasBuildState = buildLoading || buildSettled || Boolean(selectedBuild)
+  const showAutoPick = Boolean(selectedIsAutoPick && selectedKey && hasBuildState)
   const showPinnedSelection = Boolean(
-    selectedKey && !selectedStillVisible && (buildLoading || selectedBuild)
+    !showAutoPick && selectedKey && !selectedStillVisible && hasBuildState
   )
 
   const renderBuildState = (): React.JSX.Element => (
@@ -163,23 +219,52 @@ export default function RecommendationPanel({ draft, patch, recommendations, loa
           <p className="text-lol-text-dim text-xs mt-1">Obteniendo datos de Lolalytics</p>
         </div>
 
-      ) : recommendations.length > 0 || showPinnedSelection ? (
+      ) : recommendations.length > 0 || showPinnedSelection || showAutoPick ? (
         <div className="flex flex-col overflow-y-auto p-2 gap-1.5">
+          {selectionNotice && (
+            <div className="app-card px-3 py-2 text-xs font-semibold text-lol-text-dim">
+              {selectionNotice}
+            </div>
+          )}
+
+          {showAutoPick && (
+            <div className="mb-1 app-card border-l-2 border-l-lol-green/70 p-1.5">
+              <div className="px-1.5 pb-1 text-[10px] font-bold uppercase text-lol-green">
+                Tu pick
+              </div>
+              <div className="app-card flex items-center gap-2 px-2 py-1.5 border-l-2 border-l-lol-green/70">
+                <div className="h-9 w-9 shrink-0 overflow-hidden rounded-md border border-lol-green/45 bg-lol-dark">
+                  <img src={`ddragon://${selectedKey}.png`} alt={selectedName} className="h-full w-full object-cover" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <span className="block truncate text-xs font-semibold text-white">{selectedName}</span>
+                  <span className="block truncate text-[10px] text-lol-text-dim">
+                    {roleLabel ? `${roleLabel} - ` : ''}Build fijada automáticamente
+                  </span>
+                </div>
+                <span className="shrink-0 text-[10px] font-bold uppercase text-lol-green">Build</span>
+              </div>
+              {renderBuildState()}
+            </div>
+          )}
+
           {/* Column headers */}
+          {visibleRecommendations.length > 0 && (
           <div className="grid grid-cols-[32px_40px_minmax(0,1fr)_auto] items-center gap-2 px-2.5 pb-1">
             <span className="text-[9px] uppercase text-lol-text-dim font-semibold">#</span>
             <span />
-            <span className="text-[9px] uppercase text-lol-text-dim font-semibold">Campeon</span>
+            <span className="text-[9px] uppercase text-lol-text-dim font-semibold">Campeón</span>
             <div className="grid min-w-[74px] grid-cols-2 gap-2 text-right">
               <span className="text-[9px] uppercase text-lol-text-dim font-semibold">WR</span>
               <span className="text-[9px] uppercase text-lol-text-dim font-semibold">Score</span>
             </div>
           </div>
+          )}
 
           {showPinnedSelection && selectedRecommendation && (
             <div className="mb-1 app-card border-l-2 border-l-lol-border-bright p-1.5">
               <div className="px-1.5 pb-1 text-[10px] font-bold uppercase text-lol-text-dim">
-                Seleccion fijada
+                Selección fijada
               </div>
               <ChampionCard
                 rec={selectedRecommendation}
@@ -228,7 +313,7 @@ export default function RecommendationPanel({ draft, patch, recommendations, loa
         <div className="flex-1 flex flex-col items-center justify-center text-center p-4">
           <p className="text-lol-text text-sm font-semibold">Sin recomendaciones disponibles</p>
           <p className="text-lol-text-dim text-xs mt-1">
-            {roleLabel ? 'Datos no disponibles para este rol' : 'Esperando asignacion de rol...'}
+            {roleLabel ? 'Datos no disponibles para este rol' : 'Esperando asignación de rol...'}
           </p>
         </div>
       )}
