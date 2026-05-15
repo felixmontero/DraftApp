@@ -63,6 +63,7 @@
 - Historial local de drafts con almacenamiento anonimo, limite de entradas y acciones de borrado.
 - Auto-build del pick propio cuando el campeon local queda seleccionado.
 - Filtros para evitar guardar drafts vacios o basados solo en hovers.
+- Evaluador local de casos de draft para medir top picks/bans esperados.
 - Script `pack:win` para release interno en `release/win-unpacked/DraftApp.exe`.
 
 ---
@@ -82,5 +83,5 @@
 1. Probar con champion selects reales y guardar fixtures anonimizados.
 2. Ejecutar la checklist de release interno Windows en `RELEASE_CHECKLIST.md`.
 3. Preparar instalador Windows completo (`dist:win`) y notas de release interno.
-4. Empezar un dataset pequeno de evaluacion para medir si las recomendaciones realmente aciertan en drafts reales.
+4. Alimentar el evaluador local con drafts reales anonimizados.
 5. Anadir pruebas de renderer para estados clave del overlay.
